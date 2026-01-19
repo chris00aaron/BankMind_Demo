@@ -176,26 +176,27 @@ CREATE TABLE account_details (
 -- Tabla: monthly_history
 CREATE TABLE monthly_history ( 
     id_historial BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
-    id_customer BIGINT, 
+    record_id BIGINT, 
     monthly_period DATE, 
     pay_x INT, 
     bill_amt_X DECIMAL(15,2), 
     pay_amt_X DECIMAL(15,2), 
     did_customer_pay bit,
-    CONSTRAINT fk_monthly_history_customer FOREIGN KEY (id_customer) REFERENCES customer(id_customer) 
+    expiration_date DATE,
+    CONSTRAINT fk_monthly_history_account_details FOREIGN KEY (record_id) REFERENCES account_details(record_id) 
 ); 
 
 -- Tabla: default_prediction
 CREATE TABLE default_prediction ( 
     id_prediction BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
-    id_customer BIGINT, 
+    id_historial BIGINT, 
     date_prediction TIMESTAMP, 
     default_payment_next_month BOOLEAN, 
     default_probability DECIMAL(5,4), 
     main_risk_factor VARCHAR(255), 
     model_version VARCHAR(50), 
     estimated_loss DECIMAL(15,2),
-    CONSTRAINT fk_default_prediction_customer FOREIGN KEY (id_customer) REFERENCES customer(id_customer) 
+    CONSTRAINT fk_default_prediction_monthly_history FOREIGN KEY (id_historial) REFERENCES monthly_history(id_historial) 
 ); 
 
 -- Tabla: credit_cards

@@ -12,7 +12,7 @@ CREATE TABLE role (
 ); 
 
 CREATE TABLE role_details (
-   id_role_detail BIGINT PRIMARY KEY,
+   id_role_detail BIGINT ALWAYS AS IDENTITY PRIMARY KEY,
    id_role SMALLINT NOT NULL,
    id_module SMALLINT NOT NULL,
    CONSTRAINT uq_role_module UNIQUE (id_role, id_module),

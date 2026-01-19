@@ -275,9 +275,10 @@ CREATE TABLE fraud_predictions (
     id_transaction BIGINT, 
     xgboost_score FLOAT, 
     ifforest_score FLOAT, 
-    final_decision INT, 
+    final_decision INT,
+    veredicto VARCHAR(20),
     detection_scenario INT, 
-    prediction_date TIMESTAMP, 
+    prediction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
     CONSTRAINT fk_fraud_predictions_transactions FOREIGN KEY (id_transaction) REFERENCES operational_transactions(id_transaction) 
 );
 
@@ -288,8 +289,9 @@ CREATE TABLE fraud_predictions (
 CREATE TABLE prediction_details (
     id_detail BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_fraud_prediction BIGINT REFERENCES fraud_predictions(id_fraud_prediction) ON DELETE CASCADE,
-    risk_factor VARCHAR(100),
-    risk_points VARCHAR(10),
-    risk_description TEXT,    
-    risk_level VARCHAR(20)  
+    feature_name VARCHAR(50),
+    feature_value TEXT,
+    shap_value FLOAT,    
+    risk_description TEXT, 
+    impact_direction VARCHAR(20)
 );

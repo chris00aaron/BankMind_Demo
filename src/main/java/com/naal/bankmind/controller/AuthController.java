@@ -148,7 +148,8 @@ public class AuthController {
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
-            @CookieValue(name = "accessToken", required = false) String accessToken) {
+            @CookieValue(name = "accessToken", required = false) String cookieToken,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
             // Validar que las contraseñas coincidan
             if (!request.getNewPassword().equals(request.getConfirmPassword())) {
@@ -156,13 +157,20 @@ public class AuthController {
                         .body(ApiResponse.error("Las contraseñas no coinciden"));
             }
 
-            // Obtener usuario del token
-            if (accessToken == null || accessToken.isEmpty()) {
+            // Obtener token (prioridad cookie, luego header)
+            String token = cookieToken;
+            if (token == null || token.isEmpty()) {
+                if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                    token = authHeader.substring(7);
+                }
+            }
+
+            if (token == null || token.isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("Token no proporcionado"));
             }
 
-            String email = jwtService.extractUsername(accessToken);
+            String email = jwtService.extractUsername(token);
             authService.changePassword(email, request.getNewPassword());
 
             return ResponseEntity.ok(ApiResponse.success(

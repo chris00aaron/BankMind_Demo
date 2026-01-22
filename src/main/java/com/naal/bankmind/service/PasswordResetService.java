@@ -60,8 +60,10 @@ public class PasswordResetService {
                 .collect(Collectors.toList());
     }
 
+    private static final String DEFAULT_PASSWORD = "admin123";
+
     @Transactional
-    public void approveRequest(Long requestId, String newPassword, User processedBy) {
+    public void approveRequest(Long requestId, User processedBy) {
         PasswordResetRequest request = passwordResetRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Solicitud no encontrada"));
 
@@ -69,9 +71,10 @@ public class PasswordResetService {
             throw new IllegalStateException("Esta solicitud ya fue procesada");
         }
 
-        // Actualizar contraseña del usuario
+        // Actualizar contraseña del usuario a la predeterminada
         User user = request.getUser();
-        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPassword(passwordEncoder.encode(DEFAULT_PASSWORD));
+        user.setMustChangePassword(true); // Marcar que debe cambiar contraseña
         user.setUpdatedAt(LocalDateTime.now());
         userRepository.save(user);
 
@@ -81,7 +84,7 @@ public class PasswordResetService {
         request.setProcessedBy(processedBy);
         passwordResetRepository.save(request);
 
-        log.info("✅ Solicitud de cambio de contraseña aprobada. Usuario: {}, Procesado por: {}",
+        log.info("✅ Contraseña resetada a predeterminada para usuario: {}, Procesado por: {}",
                 user.getEmail(), processedBy.getEmail());
     }
 

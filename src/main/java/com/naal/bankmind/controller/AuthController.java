@@ -2,6 +2,7 @@ package com.naal.bankmind.controller;
 
 import com.naal.bankmind.dto.*;
 import com.naal.bankmind.service.AuthService;
+import com.naal.bankmind.service.JwtService;
 import com.naal.bankmind.service.PasswordResetService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,6 +22,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
+    private final JwtService jwtService;
 
     @Value("${jwt.access-token-expiration}")
     private long accessTokenExpiration;
@@ -137,6 +139,38 @@ public class AuthController {
             return ResponseEntity.ok(ApiResponse.success(
                     "Se ha enviado una solicitud de cambio de contraseña al administrador. " +
                             "Será contactado cuando su solicitud sea procesada."));
+        }
+    }
+
+    /**
+     * Cambiar contraseña (para usuarios con contraseña predeterminada)
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @CookieValue(name = "accessToken", required = false) String accessToken) {
+        try {
+            // Validar que las contraseñas coincidan
+            if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Las contraseñas no coinciden"));
+            }
+
+            // Obtener usuario del token
+            if (accessToken == null || accessToken.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Token no proporcionado"));
+            }
+
+            String email = jwtService.extractUsername(accessToken);
+            authService.changePassword(email, request.getNewPassword());
+
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Contraseña actualizada exitosamente. Por favor inicie sesión nuevamente."));
+        } catch (Exception e) {
+            log.error("Error al cambiar contraseña: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Error al cambiar contraseña: " + e.getMessage()));
         }
     }
 

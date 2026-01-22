@@ -50,16 +50,17 @@ public class AdminPasswordController {
 
     /**
      * Aprobar una solicitud de cambio de contraseña
+     * La contraseña se resetea a la predeterminada (admin123)
      */
     @PostMapping("/{id}/approve")
     public ResponseEntity<ApiResponse<Void>> approveRequest(
             @PathVariable Long id,
-            @Valid @RequestBody ApprovePasswordResetRequest request,
             Authentication authentication) {
         try {
             User admin = userDetailsService.findUserByEmail(authentication.getName());
-            passwordResetService.approveRequest(id, request.getNewPassword(), admin);
-            return ResponseEntity.ok(ApiResponse.success("Solicitud aprobada. Contraseña actualizada exitosamente."));
+            passwordResetService.approveRequest(id, admin);
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Solicitud aprobada. La contraseña ha sido reseteada a la predeterminada (admin123)."));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error(e.getMessage()));

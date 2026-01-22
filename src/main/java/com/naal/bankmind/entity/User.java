@@ -44,4 +44,7 @@ public class User {
 
     @Column(name = "last_access")
     private LocalDateTime lastAccess;
+
+    @Column(name = "must_change_password", nullable = false)
+    private Boolean mustChangePassword = false;
 }

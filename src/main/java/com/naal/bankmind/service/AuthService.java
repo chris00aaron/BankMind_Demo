@@ -12,6 +12,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final OtpService otpService;
     private final CustomUserDetailsService userDetailsService;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public LoginResponse authenticate(LoginRequest request) {
@@ -47,7 +49,25 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
 
-        // Validar que tenga teléfono para MFA
+        // Si el usuario debe cambiar contraseña (contraseña predeterminada),
+        // saltar OTP y devolver flag especial
+        if (Boolean.TRUE.equals(user.getMustChangePassword())) {
+            log.info("🔐 Usuario con contraseña predeterminada detectado: {}", user.getEmail());
+
+            // Generar tokens temporales para cambio de contraseña
+            UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+            String accessToken = jwtService.generateAccessToken(userDetails);
+
+            return LoginResponse.builder()
+                    .requiresMfa(false)
+                    .requiresPasswordChange(true)
+                    .accessToken(accessToken)
+                    .userId(user.getIdUser())
+                    .message("Debe cambiar su contraseña")
+                    .build();
+        }
+
+        // Validar que tenga teléfono para MFA (flujo normal)
         if (user.getPhone() == null || user.getPhone().isEmpty()) {
             log.error("Usuario sin teléfono registrado: {}", user.getEmail());
             throw new IllegalStateException("El usuario no tiene un número de teléfono registrado para MFA");
@@ -58,6 +78,7 @@ public class AuthService {
 
         return LoginResponse.builder()
                 .requiresMfa(true)
+                .requiresPasswordChange(false)
                 .mfaToken(otp.getMfaToken())
                 .phoneHint(otpService.getPhoneHint(user.getPhone()))
                 .message("Código de verificación enviado al teléfono " + otpService.getPhoneHint(user.getPhone()))
@@ -164,5 +185,25 @@ public class AuthService {
                 .role(user.getRol() != null ? user.getRol().getCodRole() : null)
                 .roleName(user.getRol() != null ? user.getRol().getName() : null)
                 .build();
+    }
+
+    /**
+     * Cambiar contraseña de usuario (para usuarios con contraseña predeterminada)
+     */
+    @Transactional
+    public void changePassword(String email, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
+
+        // Actualizar contraseña
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(false); // Ya no requiere cambio
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        // Revocar todos los tokens del usuario para forzar nuevo login
+        refreshTokenRepository.revokeAllUserTokens(user);
+
+        log.info("🔐 Contraseña cambiada exitosamente para usuario: {}", email);
     }
 }

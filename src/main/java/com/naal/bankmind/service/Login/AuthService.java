@@ -1,6 +1,5 @@
 package com.naal.bankmind.service.Login;
 
-import com.naal.bankmind.dto.*;
 import com.naal.bankmind.dto.Login.AuthResponse;
 import com.naal.bankmind.dto.Login.LoginRequest;
 import com.naal.bankmind.dto.Login.LoginResponse;

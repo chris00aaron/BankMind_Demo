@@ -1,6 +1,5 @@
 package com.naal.bankmind.controller.Login;
 
-import com.naal.bankmind.dto.*;
 import com.naal.bankmind.dto.Login.AuthResponse;
 import com.naal.bankmind.dto.Login.ChangePasswordRequest;
 import com.naal.bankmind.dto.Login.ForgotPasswordRequest;

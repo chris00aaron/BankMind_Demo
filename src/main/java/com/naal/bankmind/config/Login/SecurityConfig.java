@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/**",
+                                "/api/morosidad/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/error",
                                 "/actuator/health")
                         .permitAll()

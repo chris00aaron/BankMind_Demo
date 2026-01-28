@@ -3,11 +3,15 @@ package com.naal.bankmind.service.Default;
 import com.naal.bankmind.client.Default.MorosidadFeignClient;
 import com.naal.bankmind.dto.Default.Request.MorosidadRequestDTO;
 import com.naal.bankmind.dto.Default.Request.PredecirMorosidadRequestDTO;
+import com.naal.bankmind.dto.Default.Request.BatchMorosidadRequestDTO;
 import com.naal.bankmind.dto.Default.Response.MorosidadResponseDTO;
+import com.naal.bankmind.dto.Default.Response.BatchMorosidadResponseDTO;
+import com.naal.bankmind.dto.Default.Response.BatchItemResponseDTO;
+import com.naal.bankmind.dto.Default.Response.BatchAccountPredictionDTO;
 import com.naal.bankmind.entity.AccountDetails;
 import com.naal.bankmind.entity.Customer;
-import com.naal.bankmind.entity.DefaultPrediction;
 import com.naal.bankmind.entity.MonthlyHistory;
+import com.naal.bankmind.entity.Default.DefaultPrediction;
 import com.naal.bankmind.repository.Default.AccountDetailsRepository;
 import com.naal.bankmind.repository.Default.DefaultPredictionRepository;
 import com.naal.bankmind.repository.Default.MonthlyHistoryRepository;
@@ -19,12 +23,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import com.naal.bankmind.dto.Default.Response.ClientePredictionDetailDTO;
 
 /**
  * Servicio para predicción de morosidad.
- * Arma el JSON con datos del cliente + historial, llama a la API y guarda la predicción.
+ * Arma el JSON con datos del cliente + historial, llama a la API y guarda la
+ * predicción.
  */
 @Service
 @RequiredArgsConstructor
@@ -38,22 +51,17 @@ public class MorosidadService {
 
     /**
      * Realiza una predicción de morosidad para una cuenta.
-     * 
-     * @param request DTO con el recordId de la cuenta
-     * @return Respuesta con predicción, probabilidad y factor de riesgo principal
      */
     @Transactional
     public MorosidadResponseDTO predecirMorosidad(PredecirMorosidadRequestDTO request) {
         log.info("Iniciando predicción de morosidad para recordId: {}", request.recordId());
 
-        // 1. Obtener AccountDetails
         AccountDetails account = accountDetailsRepository.findById(request.recordId())
                 .orElseThrow(() -> new RuntimeException("Cuenta no encontrada: " + request.recordId()));
 
         Customer customer = account.getCustomer();
         log.info("Cliente encontrado: {} {}", customer.getFirstName(), customer.getSurname());
 
-        // 2. Obtener últimos 6 meses de historial
         List<MonthlyHistory> historial = monthlyHistoryRepository
                 .findTop6ByRecordIdOrderByMonthlyPeriodDesc(request.recordId());
 
@@ -61,10 +69,8 @@ public class MorosidadService {
             throw new RuntimeException("Se requieren al menos 6 meses de historial. Encontrados: " + historial.size());
         }
 
-        // 3. Armar el JSON para la API
         MorosidadRequestDTO apiRequest = armarRequestAPI(account, customer, historial);
 
-        // 4. Llamar a la API de predicción
         MorosidadResponseDTO response;
         try {
             response = morosidadClient.predict(apiRequest);
@@ -75,21 +81,238 @@ public class MorosidadService {
             throw new RuntimeException("Error al comunicarse con el servicio de predicción de morosidad", e);
         }
 
-        // 5. Guardar la predicción en BD
         guardarPrediccion(historial.get(0), response, account.getLimitBal());
-
         return response;
     }
 
     /**
-     * Arma el DTO con los 24 campos requeridos por la API.
+     * Realiza predicciones batch para múltiples cuentas.
+     * OPTIMIZADO: Solo 2 queries en lugar de N+1.
      */
-    private MorosidadRequestDTO armarRequestAPI(AccountDetails account, Customer customer, List<MonthlyHistory> historial) {
-        // Calcular UTILIZATION_RATE
+    @Transactional
+    public List<BatchAccountPredictionDTO> predecirBatch(List<Long> recordIds) {
+        log.info("Iniciando predicción batch para {} cuentas", recordIds.size());
+
+        if (recordIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // QUERY 1: Cargar todas las cuentas con sus clientes en una sola query
+        List<AccountDetails> allAccounts = accountDetailsRepository.findAllWithCustomerByRecordIds(recordIds);
+        Map<Long, AccountDetails> accountMap = allAccounts.stream()
+                .collect(Collectors.toMap(AccountDetails::getRecordId, a -> a));
+
+        log.info("Cargadas {} cuentas", allAccounts.size());
+
+        // QUERY 2: Cargar todo el historial para todas las cuentas
+        List<MonthlyHistory> allHistories = monthlyHistoryRepository.findAllByRecordIds(recordIds);
+
+        // Agrupar historiales por recordId y limitar a 6 por cuenta
+        Map<Long, List<MonthlyHistory>> historyMap = allHistories.stream()
+                .collect(Collectors.groupingBy(h -> h.getAccountDetails().getRecordId()));
+
+        // Limitar a 6 registros por cuenta (ya están ordenados por fecha DESC)
+        historyMap.replaceAll((k, v) -> v.size() > 6 ? v.subList(0, 6) : v);
+
+        log.info("Cargados historiales para {} cuentas", historyMap.size());
+
+        // Preparar datos para la API
+        List<AccountDetails> validAccounts = new ArrayList<>();
+        List<List<MonthlyHistory>> validHistoriales = new ArrayList<>();
+        List<MorosidadRequestDTO> apiRequests = new ArrayList<>();
+
+        for (Long recordId : recordIds) {
+            AccountDetails account = accountMap.get(recordId);
+            if (account == null) {
+                continue;
+            }
+
+            List<MonthlyHistory> historial = historyMap.get(recordId);
+            if (historial == null || historial.size() < 6) {
+                continue;
+            }
+
+            validAccounts.add(account);
+            validHistoriales.add(historial);
+            apiRequests.add(armarRequestAPI(account, account.getCustomer(), historial));
+        }
+
+        if (apiRequests.isEmpty()) {
+            log.warn("No hay cuentas válidas para procesar");
+            return new ArrayList<>();
+        }
+
+        log.info("Preparadas {} cuentas para predicción batch", apiRequests.size());
+
+        BatchMorosidadRequestDTO batchRequest = new BatchMorosidadRequestDTO(apiRequests);
+        BatchMorosidadResponseDTO batchResponse;
+        try {
+            batchResponse = morosidadClient.predictBatch(batchRequest);
+            log.info("Respuesta batch recibida: {} predicciones", batchResponse.getTotalProcessed());
+        } catch (Exception e) {
+            log.error("Error en predicción batch: {}", e.getMessage());
+            throw new RuntimeException("Error al comunicarse con el servicio de predicción batch", e);
+        }
+
+        List<BatchAccountPredictionDTO> results = new ArrayList<>();
+        for (BatchItemResponseDTO item : batchResponse.getPredictions()) {
+            int idx = item.getIndex();
+            if (idx >= validAccounts.size())
+                continue;
+
+            AccountDetails account = validAccounts.get(idx);
+            Customer customer = account.getCustomer();
+            List<MonthlyHistory> historial = validHistoriales.get(idx);
+
+            MorosidadResponseDTO singleResponse = new MorosidadResponseDTO(
+                    item.isDefaultPayment(),
+                    item.getProbabilidadDefault(),
+                    item.getMainRiskFactor(),
+                    batchResponse.getModelVersion());
+            guardarPrediccion(historial.get(0), singleResponse, account.getLimitBal());
+
+            double probabilidadPago = (1.0 - item.getProbabilidadDefault()) * 100;
+            String nivelRiesgo = calcularNivelRiesgo(probabilidadPago);
+
+            String nombre = (customer.getFirstName() != null ? customer.getFirstName() : "") + " " +
+                    (customer.getSurname() != null ? customer.getSurname() : "");
+            String educacion = customer.getEducation() != null
+                    ? mapEducation(customer.getEducation().getIdEducation())
+                    : "Otro";
+            String estadoCivil = customer.getMarriage() != null
+                    ? mapMarriage(customer.getMarriage().getIdMarriage())
+                    : "Otro";
+
+            results.add(new BatchAccountPredictionDTO(
+                    customer.getIdCustomer(),
+                    nombre.trim(),
+                    customer.getAge(),
+                    educacion,
+                    estadoCivil,
+                    account.getRecordId(),
+                    account.getLimitBal(),
+                    account.getBalance(),
+                    probabilidadPago,
+                    nivelRiesgo,
+                    historial.get(0).getBillAmtX()));
+        }
+
+        log.info("Predicción batch completada: {} resultados", results.size());
+        return results;
+    }
+
+    /**
+     * Realiza una predicción de morosidad y retorna todos los datos enriquecidos.
+     */
+    @Transactional
+    public ClientePredictionDetailDTO predecirMorosidadCompleto(PredecirMorosidadRequestDTO request) {
+        log.info("Iniciando predicción completa para recordId: {}", request.recordId());
+
+        AccountDetails account = accountDetailsRepository.findById(request.recordId())
+                .orElseThrow(() -> new RuntimeException("Cuenta no encontrada: " + request.recordId()));
+        Customer customer = account.getCustomer();
+        List<MonthlyHistory> historial = monthlyHistoryRepository
+                .findTop6ByRecordIdOrderByMonthlyPeriodDesc(request.recordId());
+
+        if (historial.size() < 6) {
+            throw new RuntimeException("Se requieren al menos 6 meses de historial. Encontrados: " + historial.size());
+        }
+
+        MorosidadRequestDTO apiRequest = armarRequestAPI(account, customer, historial);
+        MorosidadResponseDTO response;
+        try {
+            response = morosidadClient.predict(apiRequest);
+        } catch (Exception e) {
+            log.error("Error al obtener predicción: {}", e.getMessage());
+            throw new RuntimeException("Error al comunicarse con el servicio de predicción", e);
+        }
+
+        guardarPrediccion(historial.get(0), response, account.getLimitBal());
+
+        int cuotasAtrasadas = calcularCuotasAtrasadas(historial);
+        double historialPagos = calcularHistorialPagos(historial);
+        int antiguedadMeses = calcularAntiguedad(customer);
+        double probabilidadPago = (1.0 - response.probabilidadDefault()) * 100;
+        String nivelRiesgo = calcularNivelRiesgo(probabilidadPago);
+        BigDecimal estimatedLoss = calcularPerdidaEstimada(response, account.getLimitBal());
+
+        String educacion = mapEducation(customer.getEducation() != null ? customer.getEducation().getIdEducation() : 4);
+        String estadoCivil = mapMarriage(customer.getMarriage() != null ? customer.getMarriage().getIdMarriage() : 3);
+        String nombre = (customer.getFirstName() != null ? customer.getFirstName() : "") + " " +
+                (customer.getSurname() != null ? customer.getSurname() : "");
+        String fechaRegistro = customer.getIdRegistrationDate() != null
+                ? customer.getIdRegistrationDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                : "";
+        String ultimoPago = historial.get(0).getMonthlyPeriod() != null
+                ? historial.get(0).getMonthlyPeriod().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                : "";
+
+        return new ClientePredictionDetailDTO(
+                customer.getIdCustomer(), nombre.trim(), customer.getAge(), educacion, estadoCivil, fechaRegistro,
+                account.getRecordId(), account.getLimitBal(), account.getBalance(), account.getEstimatedSalary(),
+                account.getTenure(), antiguedadMeses, cuotasAtrasadas, historialPagos, historial.get(0).getBillAmtX(),
+                ultimoPago, response.isDefault(), probabilidadPago, nivelRiesgo,
+                response.mainRiskFactor(), response.modelVersion(), estimatedLoss);
+    }
+
+    private int calcularCuotasAtrasadas(List<MonthlyHistory> historial) {
+        return (int) historial.stream().filter(h -> h.getPayX() != null && h.getPayX() > 0).count();
+    }
+
+    private double calcularHistorialPagos(List<MonthlyHistory> historial) {
+        long pagosATiempo = historial.stream().filter(h -> h.getPayX() != null && h.getPayX() <= 0).count();
+        return (pagosATiempo * 100.0) / historial.size();
+    }
+
+    private int calcularAntiguedad(Customer customer) {
+        if (customer.getIdRegistrationDate() == null)
+            return 0;
+        return (int) ChronoUnit.MONTHS.between(customer.getIdRegistrationDate().toLocalDate(), LocalDate.now());
+    }
+
+    private String calcularNivelRiesgo(double probabilidadPago) {
+        if (probabilidadPago >= 75)
+            return "Bajo";
+        if (probabilidadPago >= 50)
+            return "Medio";
+        if (probabilidadPago >= 25)
+            return "Alto";
+        return "Crítico";
+    }
+
+    private BigDecimal calcularPerdidaEstimada(MorosidadResponseDTO response, BigDecimal limitBal) {
+        if (response.isDefault() && limitBal != null) {
+            return limitBal.multiply(BigDecimal.valueOf(response.probabilidadDefault()))
+                    .setScale(2, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private String mapEducation(Integer idEducation) {
+        return switch (idEducation) {
+            case 1 -> "Postgrado";
+            case 2 -> "Universitaria";
+            case 3 -> "Secundaria";
+            case 4 -> "Primaria";
+            default -> "Otro";
+        };
+    }
+
+    private String mapMarriage(Integer idMarriage) {
+        return switch (idMarriage) {
+            case 1 -> "Casado";
+            case 2 -> "Soltero";
+            case 3 -> "Divorciado";
+            default -> "Otro";
+        };
+    }
+
+    private MorosidadRequestDTO armarRequestAPI(AccountDetails account, Customer customer,
+            List<MonthlyHistory> historial) {
         BigDecimal limitBal = account.getLimitBal();
         BigDecimal billAmt1 = historial.get(0).getBillAmtX();
         Double utilizationRate = 0.0;
-        
+
         if (limitBal != null && limitBal.compareTo(BigDecimal.ZERO) > 0 && billAmt1 != null) {
             utilizationRate = billAmt1.divide(limitBal, 4, RoundingMode.HALF_UP).doubleValue();
         }
@@ -100,38 +323,27 @@ public class MorosidadService {
                 customer.getEducation() != null ? customer.getEducation().getIdEducation().intValue() : 4,
                 customer.getMarriage() != null ? customer.getMarriage().getIdMarriage().intValue() : 3,
                 customer.getAge() != null ? customer.getAge() : 30,
-                
-                // PAY_0 a PAY_6 (índices 0-5 del historial)
                 historial.get(0).getPayX() != null ? historial.get(0).getPayX() : 0,
                 historial.get(1).getPayX() != null ? historial.get(1).getPayX() : 0,
                 historial.get(2).getPayX() != null ? historial.get(2).getPayX() : 0,
                 historial.get(3).getPayX() != null ? historial.get(3).getPayX() : 0,
                 historial.get(4).getPayX() != null ? historial.get(4).getPayX() : 0,
                 historial.get(5).getPayX() != null ? historial.get(5).getPayX() : 0,
-                
-                // BILL_AMT1 a BILL_AMT6
                 historial.get(0).getBillAmtX() != null ? historial.get(0).getBillAmtX().doubleValue() : 0.0,
                 historial.get(1).getBillAmtX() != null ? historial.get(1).getBillAmtX().doubleValue() : 0.0,
                 historial.get(2).getBillAmtX() != null ? historial.get(2).getBillAmtX().doubleValue() : 0.0,
                 historial.get(3).getBillAmtX() != null ? historial.get(3).getBillAmtX().doubleValue() : 0.0,
                 historial.get(4).getBillAmtX() != null ? historial.get(4).getBillAmtX().doubleValue() : 0.0,
                 historial.get(5).getBillAmtX() != null ? historial.get(5).getBillAmtX().doubleValue() : 0.0,
-                
-                // PAY_AMT1 a PAY_AMT6
                 historial.get(0).getPayAmtX() != null ? historial.get(0).getPayAmtX().doubleValue() : 0.0,
                 historial.get(1).getPayAmtX() != null ? historial.get(1).getPayAmtX().doubleValue() : 0.0,
                 historial.get(2).getPayAmtX() != null ? historial.get(2).getPayAmtX().doubleValue() : 0.0,
                 historial.get(3).getPayAmtX() != null ? historial.get(3).getPayAmtX().doubleValue() : 0.0,
                 historial.get(4).getPayAmtX() != null ? historial.get(4).getPayAmtX().doubleValue() : 0.0,
                 historial.get(5).getPayAmtX() != null ? historial.get(5).getPayAmtX().doubleValue() : 0.0,
-                
-                utilizationRate
-        );
+                utilizationRate);
     }
 
-    /**
-     * Guarda la predicción en la base de datos.
-     */
     private void guardarPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response, BigDecimal limitBal) {
         DefaultPrediction prediction = new DefaultPrediction();
         prediction.setMonthlyHistory(ultimoMes);
@@ -139,9 +351,7 @@ public class MorosidadService {
         prediction.setDefaultPaymentNextMonth(response.isDefault());
         prediction.setDefaultProbability(BigDecimal.valueOf(response.probabilidadDefault()));
         prediction.setMainRiskFactor(response.mainRiskFactor());
-        prediction.setModelVersion(response.modelVersion());
-        
-        // Pérdida estimada = probabilidad * límite de crédito (simplificado)
+
         if (response.isDefault() && limitBal != null) {
             BigDecimal estimatedLoss = limitBal.multiply(BigDecimal.valueOf(response.probabilidadDefault()));
             prediction.setEstimatedLoss(estimatedLoss.setScale(2, RoundingMode.HALF_UP));

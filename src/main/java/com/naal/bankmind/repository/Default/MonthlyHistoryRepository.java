@@ -12,9 +12,15 @@ import java.util.List;
 public interface MonthlyHistoryRepository extends JpaRepository<MonthlyHistory, Long> {
 
     /**
-     * Obtiene los últimos 6 meses de historial para una cuenta, ordenados por fecha
-     * descendente.
+     * Obtiene los últimos 6 meses de historial para una cuenta.
      */
     @Query("SELECT mh FROM MonthlyHistory mh WHERE mh.accountDetails.recordId = :recordId ORDER BY mh.monthlyPeriod DESC")
     List<MonthlyHistory> findTop6ByRecordIdOrderByMonthlyPeriodDesc(@Param("recordId") Long recordId);
+
+    /**
+     * Obtiene todo el historial para múltiples cuentas en una sola query.
+     * Optimización para evitar N+1 queries en batch.
+     */
+    @Query("SELECT mh FROM MonthlyHistory mh WHERE mh.accountDetails.recordId IN :recordIds ORDER BY mh.accountDetails.recordId, mh.monthlyPeriod DESC")
+    List<MonthlyHistory> findAllByRecordIds(@Param("recordIds") List<Long> recordIds);
 }

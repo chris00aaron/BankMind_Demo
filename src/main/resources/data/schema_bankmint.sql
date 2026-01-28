@@ -244,13 +244,20 @@ CREATE TABLE operational_transactions (
     trans_date_time TIMESTAMP, 
     amt DECIMAL(15,2), 
     merchant VARCHAR(150), 
-    category VARCHAR(100), 
+    id_category INT, 
     merch_lat DOUBLE PRECISION, 
     merch_long DOUBLE PRECISION, 
     unix_time BIGINT, 
     is_fraud_ground_truth INT, 
-    CONSTRAINT fk_operational_transactions_credit_cards FOREIGN KEY (cc_num) REFERENCES credit_cards(cc_num) 
-); 
+    CONSTRAINT fk_operational_transactions_credit_cards FOREIGN KEY (cc_num) REFERENCES credit_cards(cc_num),
+    CONSTRAINT fk_operational_transactions_categories FOREIGN KEY (id_category) REFERENCES categories(id_category) 
+);
+
+CREATE TABLE categories (
+    id_category INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    category_name VARCHAR(100) UNIQUE NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE
+);
 
 -- Tabla: prediction_atms
 CREATE TABLE prediction_atms ( 

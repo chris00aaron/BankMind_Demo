@@ -31,8 +31,10 @@ public class OperationalTransactions {
     @Column(name = "merchant", length = 150)
     private String merchant;
 
-    @Column(name = "category", length = 100)
-    private String category;
+    // Relación ManyToOne con Category (antes era String)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_category")
+    private Category category;
 
     @Column(name = "merch_lat")
     private Double merchLat;
@@ -45,4 +47,9 @@ public class OperationalTransactions {
 
     @Column(name = "is_fraud_ground_truth")
     private Integer isFraudGroundTruth;
+
+    // Helper para obtener el nombre de categoría de forma segura
+    public String getCategoryName() {
+        return category != null ? category.getCategoryName() : null;
+    }
 }

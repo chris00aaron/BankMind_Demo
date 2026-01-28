@@ -3,6 +3,8 @@ package com.naal.bankmind.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Entity
@@ -35,4 +37,7 @@ public class FraudPredictions {
 
     @Column(name = "prediction_date")
     private LocalDateTime predictionDate;
+
+    @OneToMany(mappedBy = "fraudPrediction", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PredictionDetails> details = new ArrayList<>();
 }

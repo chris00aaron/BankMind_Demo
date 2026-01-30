@@ -23,6 +23,9 @@ public class WhatIfRequestDto {
     @JsonProperty("amt")
     private Double amt; // Monto simulado
 
+    @JsonProperty("merchant")
+    private String merchant; // Nombre del comercio (requerido si se guarda en BD)
+
     @JsonProperty("category")
     private String category; // Categoría del comercio
 
@@ -34,4 +37,8 @@ public class WhatIfRequestDto {
 
     @JsonProperty("merch_long")
     private Double merchLong; // Longitud comercio simulada
+
+    @JsonProperty("save_to_db")
+    @Builder.Default
+    private Boolean saveToDB = false; // Si true, guarda la transacción y predicción en BD
 }

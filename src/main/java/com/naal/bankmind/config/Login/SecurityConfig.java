@@ -50,6 +50,10 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/morosidad/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/customers/**", // SOLO PARA PRUEBAS QUITAR LUEGO
+                                "/api/dashboard/**", // SOLO PARA PRUEBAS QUITAR LUEGO
+                                "/api/policies/**", // SOLO PARA PRUEBAS QUITAR LUEGO
+                                "/api/warnings/**", // SOLO PARA PRUEBAS QUITAR LUEGO
+                                "/api/model/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/error",
                                 "/actuator/health")
                         .permitAll()

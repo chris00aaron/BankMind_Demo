@@ -7,6 +7,7 @@ import java.util.Set;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.naal.bankmind.entity.MonthlyHistory;
 import com.naal.bankmind.entity.Default.POJO.MetricsResults;
 import com.naal.bankmind.entity.Default.POJO.ParametersOptuna;
 
@@ -58,6 +59,10 @@ public class TrainingHistory {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private Set<TrainingHistory> challengedModels = new HashSet<>();
+
+    @ManyToOne
+    @JoinColumn(name = "id_dataset")
+    private DatasetInfo datasetInfo;
 
     // PUEDES EXPANDIRSE EN UNA TABLA CON METADATOS DE COMPARACIÓN
 }

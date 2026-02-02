@@ -155,6 +155,8 @@ public class MorosidadService {
         }
 
         List<BatchAccountPredictionDTO> results = new ArrayList<>();
+        List<DefaultPrediction> predictionsToSave = new ArrayList<>(); // Acumular para batch insert
+
         for (BatchItemResponseDTO item : batchResponse.getPredictions()) {
             int idx = item.getIndex();
             if (idx >= validAccounts.size())
@@ -169,7 +171,10 @@ public class MorosidadService {
                     item.getProbabilidadDefault(),
                     item.getMainRiskFactor(),
                     batchResponse.getModelVersion());
-            guardarPrediccion(historial.get(0), singleResponse, account.getLimitBal());
+
+            // Crear predicción sin guardar aún
+            DefaultPrediction pred = crearPrediccion(historial.get(0), singleResponse, account.getLimitBal());
+            predictionsToSave.add(pred);
 
             double probabilidadPago = (1.0 - item.getProbabilidadDefault()) * 100;
             String nivelRiesgo = calcularNivelRiesgo(probabilidadPago);
@@ -195,6 +200,12 @@ public class MorosidadService {
                     probabilidadPago,
                     nivelRiesgo,
                     historial.get(0).getBillAmtX()));
+        }
+
+        // Guardar todas las predicciones en una sola operación batch
+        if (!predictionsToSave.isEmpty()) {
+            defaultPredictionRepository.saveAll(predictionsToSave);
+            log.info("Guardadas {} predicciones en batch", predictionsToSave.size());
         }
 
         log.info("Predicción batch completada: {} resultados", results.size());
@@ -344,7 +355,11 @@ public class MorosidadService {
                 utilizationRate);
     }
 
-    private void guardarPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response, BigDecimal limitBal) {
+    /**
+     * Crea una predicción sin guardarla (para batch inserts).
+     */
+    private DefaultPrediction crearPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response,
+            BigDecimal limitBal) {
         DefaultPrediction prediction = new DefaultPrediction();
         prediction.setMonthlyHistory(ultimoMes);
         prediction.setDatePrediction(LocalDateTime.now());
@@ -356,8 +371,51 @@ public class MorosidadService {
             BigDecimal estimatedLoss = limitBal.multiply(BigDecimal.valueOf(response.probabilidadDefault()));
             prediction.setEstimatedLoss(estimatedLoss.setScale(2, RoundingMode.HALF_UP));
         }
+        return prediction;
+    }
 
+    /**
+     * Guarda una predicción individual (para requests individuales).
+     */
+    private void guardarPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response, BigDecimal limitBal) {
+        DefaultPrediction prediction = crearPrediccion(ultimoMes, response, limitBal);
         defaultPredictionRepository.save(prediction);
         log.info("Predicción guardada con ID: {}", prediction.getIdPrediction());
+    }
+
+    /**
+     * Simula una predicción sin guardar en base de datos.
+     */
+    public com.naal.bankmind.dto.Default.Response.SimulationResponseDTO simulatePrediction(
+            com.naal.bankmind.dto.Default.Request.SimulationRequestDTO request) {
+
+        log.info("Simulando predicción de morosidad...");
+
+        MorosidadRequestDTO apiRequest = new MorosidadRequestDTO(
+                request.limitBal(),
+                request.sex(),
+                request.education(),
+                request.marriage(),
+                request.age(),
+                request.pay0(), request.pay2(), request.pay3(), request.pay4(), request.pay5(), request.pay6(),
+                request.billAmt1(), request.billAmt2(), request.billAmt3(), request.billAmt4(), request.billAmt5(),
+                request.billAmt6(),
+                request.payAmt1(), request.payAmt2(), request.payAmt3(), request.payAmt4(), request.payAmt5(),
+                request.payAmt6(),
+                request.utilizationRate());
+
+        MorosidadResponseDTO response;
+        try {
+            response = morosidadClient.predict(apiRequest);
+        } catch (Exception e) {
+            log.error("Error en simulación: {}", e.getMessage());
+            throw new RuntimeException("Error al simular predicción", e);
+        }
+
+        return new com.naal.bankmind.dto.Default.Response.SimulationResponseDTO(
+                response.isDefault(),
+                response.probabilidadDefault(),
+                response.mainRiskFactor(),
+                response.modelVersion());
     }
 }

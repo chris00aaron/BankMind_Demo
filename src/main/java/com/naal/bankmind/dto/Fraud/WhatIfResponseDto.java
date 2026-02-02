@@ -64,6 +64,10 @@ public class WhatIfResponseDto {
     @JsonProperty("recomendacion")
     private String recomendacion;
 
+    // Indica si se guardó en BD
+    @JsonProperty("saved_to_db")
+    private Boolean savedToDB;
+
     // Mensaje de error si algo falla
     @JsonProperty("error")
     private String error;

@@ -51,7 +51,7 @@ public class FraudConfirmationService {
         confirmToken.setUsedAt(LocalDateTime.now());
         tokenRepository.save(confirmToken);
 
-        log.info("✅ Transacción {} confirmada como LEGÍTIMA por el cliente. is_fraud_ground_truth=0",
+        log.info("Transacción {} confirmada como LEGÍTIMA por el cliente. is_fraud_ground_truth=0",
                 transaction.getTransNum());
 
         return "Gracias por confirmar. La transacción ha sido aprobada.";
@@ -82,7 +82,7 @@ public class FraudConfirmationService {
         confirmToken.setUsedAt(LocalDateTime.now());
         tokenRepository.save(confirmToken);
 
-        log.warn("🚫 Transacción {} marcada como FRAUDE. Tarjeta {} BLOQUEADA. is_fraud_ground_truth=1",
+        log.warn("Transacción {} marcada como FRAUDE. Tarjeta {} BLOQUEADA. is_fraud_ground_truth=1",
                 transaction.getTransNum(),
                 transaction.getCreditCard().getMaskedCardNumber());
 

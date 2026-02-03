@@ -53,7 +53,13 @@ public class SecurityConfig {
                                 "/api/morosidad/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/customers/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/error",
-                                "/actuator/health")
+                                "/actuator/health",
+                                // Recursos estáticos (imágenes, CSS, JS, etc.)
+                                "/images/**",
+                                "/css/**",
+                                "/js/**",
+                                "/static/**",
+                                "/favicon.ico")
                         .permitAll()
                         // Rutas de admin
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

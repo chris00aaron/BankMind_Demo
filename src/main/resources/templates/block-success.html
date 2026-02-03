@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, device-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${title}">Tarjeta Bloqueada</title>
     <style>
         * {
@@ -13,8 +13,8 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #F3F4F6;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -24,207 +24,224 @@
 
         .container {
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            max-width: 550px;
+            border: 1px solid #E5E7EB;
+            max-width: 600px;
             width: 100%;
-            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .header {
+            background-color: #1E3A8A;
+            padding: 30px 40px;
             text-align: center;
         }
 
-        .icon {
-            font-size: 80px;
-            margin-bottom: 20px;
+        .logo {
+            height: 45px;
+            margin-bottom: 12px;
         }
 
-        .icon.blocked {
-            color: #dc3545;
-            animation: shake 0.5s ease-out;
+        .header h1 {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0;
+            letter-spacing: 0.5px;
         }
 
-        .icon.error {
-            color: #dc3545;
+        .content {
+            padding: 40px;
         }
 
-        h1 {
-            font-size: 28px;
+        .status-badge {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 25px;
+        }
+
+        .status-badge.blocked {
+            background-color: #FEE2E2;
+            color: #991B1B;
+            border: 1px solid #FCA5A5;
+        }
+
+        .status-badge.error {
+            background-color: #FEF3C7;
+            color: #92400E;
+            border: 1px solid #FCD34D;
+        }
+
+        h2 {
+            font-size: 24px;
             margin-bottom: 15px;
-            color: #333;
+            color: #1F2937;
         }
 
-        h1.danger {
-            color: #dc3545;
+        h2.danger {
+            color: #DC2626;
         }
 
         .message {
-            font-size: 16px;
-            color: #666;
+            font-size: 15px;
+            color: #4B5563;
             line-height: 1.6;
             margin-bottom: 30px;
         }
 
-        .alert-card {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            border-radius: 8px;
+        .alert-box {
+            background-color: #FEF3C7;
+            border-left: 4px solid #F59E0B;
             padding: 20px;
             margin: 25px 0;
-            text-align: left;
         }
 
-        .alert-card h3 {
-            color: #856404;
-            font-size: 18px;
+        .alert-box p {
+            margin: 0 0 10px 0;
+            color: #92400E;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .alert-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        .alert-box .highlight {
+            font-weight: 700;
+            color: #DC2626;
+        }
+
+        .info-box {
+            background-color: #EFF6FF;
+            border-left: 4px solid #3B82F6;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .info-box h3 {
+            color: #1E40AF;
+            font-size: 16px;
             margin-bottom: 15px;
+            font-weight: 600;
         }
 
-        .alert-card ul {
+        .info-box ul {
             list-style: none;
             padding: 0;
+            margin: 0;
         }
 
-        .alert-card li {
-            padding: 8px 0;
-            color: #856404;
-            font-size: 15px;
+        .info-box li {
+            padding: 6px 0;
+            color: #1E40AF;
+            font-size: 14px;
         }
 
-        .alert-card li::before {
-            content: "✓ ";
-            color: #28a745;
+        .info-box li::before {
+            content: "• ";
             font-weight: bold;
             margin-right: 8px;
         }
 
-        .danger-card {
-            background: #f8d7da;
-            border-left: 4px solid #dc3545;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 25px 0;
-        }
-
-        .danger-card p {
-            color: #721c24;
-            font-size: 15px;
-            line-height: 1.6;
-            margin: 10px 0;
-        }
-
-        .danger-card .highlight {
-            font-weight: 700;
-            color: #dc3545;
-        }
-
-        .info-box {
-            background: #e7f3ff;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 25px 0;
-        }
-
-        .info-box p {
-            color: #004085;
-            font-size: 15px;
-            margin: 8px 0;
-        }
-
-        .contact-info {
-            background: #f8f9fa;
-            border-radius: 12px;
+        .contact-box {
+            background-color: #F9FAFB;
+            border: 1px solid #E5E7EB;
             padding: 25px;
             margin: 30px 0;
+            text-align: center;
         }
 
-        .contact-info h3 {
-            color: #333;
-            font-size: 18px;
+        .contact-box h3 {
+            color: #1F2937;
+            font-size: 16px;
             margin-bottom: 15px;
+            font-weight: 600;
         }
 
         .phone {
             font-size: 24px;
             font-weight: 700;
-            color: #667eea;
-            margin: 15px 0;
+            color: #1E3A8A;
+            margin: 12px 0;
         }
 
-        @keyframes shake {
-
-            0%,
-            100% {
-                transform: translateX(0);
-            }
-
-            10%,
-            30%,
-            50%,
-            70%,
-            90% {
-                transform: translateX(-5px);
-            }
-
-            20%,
-            40%,
-            60%,
-            80% {
-                transform: translateX(5px);
-            }
+        .footer-text {
+            margin-top: 30px;
+            font-size: 13px;
+            color: #9CA3AF;
+            text-align: center;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <div th:if="${isBlocked}" class="icon blocked">🚫</div>
-        <div th:unless="${isBlocked}" class="icon error">❌</div>
-
-        <h1 th:class="${isBlocked} ? 'danger' : ''" th:text="${title}">Tarjeta Bloqueada</h1>
-
-        <p class="message" th:text="${message}">
-            Tu tarjeta ha sido bloqueada por seguridad.
-        </p>
-
-        <div th:if="${isBlocked}" class="danger-card">
-            <p><span class="highlight">⚠️ Medidas de seguridad activadas:</span></p>
-            <p>✓ Transacción marcada como <span class="highlight">FRAUDE</span></p>
-            <p>✓ Estado cambiado a <span class="highlight">RECHAZADO</span></p>
-            <p>✓ Tarjeta <span class="highlight">BLOQUEADA</span> permanentemente</p>
-            <p>✓ Sistema de IA actualizado con tu reporte</p>
+        <!-- Header -->
+        <div class="header">
+            <img src="/images/logo_BankMind.png" alt="BankMind" class="logo">
+            <h1>BankMind</h1>
         </div>
 
-        <div th:if="${isBlocked}" class="alert-card">
-            <h3>📋 Próximos pasos:</h3>
-            <ul>
-                <li>Tu tarjeta actual ha sido desactivada</li>
-                <li>Contacta a servicio al cliente para solicitar una nueva tarjeta</li>
-                <li>Revisa tus últimas transacciones por actividad sospechosa</li>
-                <li>Considera cambiar tus claves de acceso</li>
-            </ul>
-        </div>
+        <!-- Content -->
+        <div class="content">
+            <div th:if="${isBlocked}" class="status-badge blocked">TARJETA BLOQUEADA</div>
+            <div th:unless="${isBlocked}" class="status-badge error">ERROR EN EL PROCESO</div>
 
-        <div th:if="${isBlocked}" class="contact-info">
-            <h3>📞 Servicio al Cliente 24/7</h3>
-            <div class="phone">1-800-BANKMIND</div>
-            <p style="color: #666; font-size: 14px; margin-top: 10px;">
-                También puedes visitar cualquiera de nuestras sucursales
+            <h2 th:class="${isBlocked} ? 'danger' : ''" th:text="${title}">Tarjeta Bloqueada</h2>
+
+            <p class="message" th:text="${message}">
+                Su tarjeta ha sido bloqueada por medidas de seguridad.
+            </p>
+
+            <!-- Mensaje de Bloqueo Exitoso -->
+            <div th:if="${isBlocked}" class="alert-box">
+                <p><strong>MEDIDAS DE SEGURIDAD ACTIVADAS:</strong></p>
+                <p>• Transacción marcada como <span class="highlight">FRAUDE</span></p>
+                <p>• Estado actualizado a <span class="highlight">RECHAZADO</span></p>
+                <p>• Tarjeta <span class="highlight">BLOQUEADA</span> permanentemente</p>
+                <p>• Sistema actualizado con su reporte</p>
+            </div>
+
+            <!-- Próximos Pasos -->
+            <div th:if="${isBlocked}" class="info-box">
+                <h3>PRÓXIMOS PASOS</h3>
+                <ul>
+                    <li>Su tarjeta actual ha sido desactivada</li>
+                    <li>Contacte a servicio al cliente para solicitar una nueva tarjeta</li>
+                    <li>Revise sus últimas transacciones por actividad sospechosa</li>
+                    <li>Considere cambiar sus claves de acceso</li>
+                </ul>
+            </div>
+
+            <!-- Información de Contacto -->
+            <div th:if="${isBlocked}" class="contact-box">
+                <h3>SERVICIO AL CLIENTE 24/7</h3>
+                <div class="phone">1-800-BANKMIND</div>
+                <p style="color: #6B7280; font-size: 13px; margin-top: 10px;">
+                    También puede visitar cualquiera de nuestras sucursales
+                </p>
+            </div>
+
+            <!-- Mensaje de Error -->
+            <div th:unless="${isBlocked}" class="alert-box">
+                <p><strong>No se pudo procesar su solicitud.</strong></p>
+                <p>Por favor, contacte inmediatamente a nuestro servicio al cliente.</p>
+            </div>
+
+            <!-- Nota de Seguridad -->
+            <div class="info-box" th:if="${isBlocked}">
+                <p style="color: #1E40AF; font-size: 13px; margin: 0;">
+                    <strong>SU SEGURIDAD ES NUESTRA PRIORIDAD.</strong> Gracias por reportar este fraude. Su acción
+                    ayuda a proteger a toda nuestra comunidad bancaria.
+                </p>
+            </div>
+
+            <p class="footer-text">
+                Puede cerrar esta ventana de forma segura
             </p>
         </div>
-
-        <div th:unless="${isBlocked}" class="danger-card">
-            <p>⚠️ No pudimos procesar tu solicitud</p>
-            <p>Por favor, contacta inmediatamente a nuestro servicio al cliente</p>
-        </div>
-
-        <div class="info-box" th:if="${isBlocked}">
-            <p><strong>🛡️ Tu seguridad es nuestra prioridad</strong></p>
-            <p style="font-size: 13px;">Gracias por reportar este fraude. Tu acción ayuda a proteger a toda nuestra
-                comunidad bancaria.</p>
-        </div>
-
-        <p style="margin-top: 30px; font-size: 14px; color: #999;">
-            Puedes cerrar esta ventana de forma segura
-        </p>
     </div>
 </body>
 

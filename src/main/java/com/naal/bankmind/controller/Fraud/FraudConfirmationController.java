@@ -33,7 +33,7 @@ public class FraudConfirmationController {
             String message = fraudConfirmationService.confirmLegitimate(token);
             model.addAttribute("success", true);
             model.addAttribute("message", message);
-            model.addAttribute("title", "✅ Transacción Confirmada");
+            model.addAttribute("title", "Transacción Confirmada");
 
             return "confirmation-success";
 
@@ -41,7 +41,7 @@ public class FraudConfirmationController {
             log.error("Error al confirmar transacción: {}", e.getMessage());
             model.addAttribute("success", false);
             model.addAttribute("message", e.getMessage());
-            model.addAttribute("title", "❌ Error");
+            model.addAttribute("title", "Error");
 
             return "confirmation-success";
         }
@@ -57,7 +57,7 @@ public class FraudConfirmationController {
             String message = fraudConfirmationService.blockCardAndReject(token);
             model.addAttribute("success", true);
             model.addAttribute("message", message);
-            model.addAttribute("title", "🚫 Tarjeta Bloqueada");
+            model.addAttribute("title", "Tarjeta Bloqueada");
             model.addAttribute("isBlocked", true);
 
             return "block-success";
@@ -66,7 +66,7 @@ public class FraudConfirmationController {
             log.error("Error al bloquear tarjeta: {}", e.getMessage());
             model.addAttribute("success", false);
             model.addAttribute("message", e.getMessage());
-            model.addAttribute("title", "❌ Error");
+            model.addAttribute("title", "Error");
             model.addAttribute("isBlocked", false);
 
             return "block-success";

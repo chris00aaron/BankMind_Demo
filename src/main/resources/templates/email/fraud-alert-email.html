@@ -1,113 +1,143 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alerta de Seguridad - BankMind</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4;">
+
+<body style="margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background-color: #f5f5f5;">
     <table role="presentation" style="width: 100%; border-collapse: collapse;">
         <tr>
-            <td align="center" style="padding: 40px 0;">
-                <table role="presentation" style="width: 600px; max-width: 100%; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <td align="center" style="padding: 40px 20px;">
+                <table role="presentation"
+                    style="width: 600px; max-width: 100%; background-color: #ffffff; border: 1px solid #e5e7eb;">
+
                     <!-- Header -->
                     <tr>
-                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">
-                                🛡️ BankMind
-                            </h1>
-                            <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 14px; opacity: 0.9;">
-                                Sistema de Seguridad
-                            </p>
-                        </td>
-                    </tr>
-
-                    <!-- Alert Banner -->
-                    <tr>
-                        <td style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 20px;">
-                            <p style="margin: 0; color: #856404; font-size: 16px; font-weight: 600;">
-                                ⚠️ Actividad Sospechosa Detectada
-                            </p>
-                        </td>
-                    </tr>
-
-                    <!-- Content -->
-                    <tr>
-                        <td style="padding: 30px;">
-                            <p style="margin: 0 0 20px 0; color: #333333; font-size: 16px;">
-                                Hola <strong th:text="${customerName}">Cliente</strong>,
-                            </p>
-                            
-                            <p style="margin: 0 0 20px 0; color: #555555; font-size: 15px; line-height: 1.6;">
-                                Nuestro sistema de inteligencia artificial ha detectado una transacción de <strong>alto riesgo</strong> en tu tarjeta. Por tu seguridad, necesitamos que verifiques si reconoces esta operación:
-                            </p>
-
-                            <!-- Transaction Details Card -->
-                            <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0;">
-                                <table style="width: 100%; border-collapse: collapse;">
-                                    <tr>
-                                        <td style="padding: 8px 0; color: #666666; font-size: 14px; width: 40%;">
-                                            💳 Tarjeta:
-                                        </td>
-                                        <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 600;" th:text="${cardNumber}">
-                                            **** 1234
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 8px 0; color: #666666; font-size: 14px;">
-                                            💵 Monto:
-                                        </td>
-                                        <td style="padding: 8px 0; color: #dc3545; font-size: 18px; font-weight: 700;" th:text="${amount}">
-                                            $150.00
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 8px 0; color: #666666; font-size: 14px;">
-                                            🏪 Comercio:
-                                        </td>
-                                        <td style="padding: 8px 0; color: #333333; font-size: 14px; font-weight: 600;" th:text="${merchant}">
-                                            Amazon.com
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 8px 0; color: #666666; font-size: 14px;">
-                                            📅 Fecha y Hora:
-                                        </td>
-                                        <td style="padding: 8px 0; color: #333333; font-size: 14px;" th:text="${transactionDate}">
-                                            02/02/2026 14:30
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-
-                            <p style="margin: 25px 0 20px 0; color: #333333; font-size: 16px; font-weight: 600; text-align: center;">
-                                ¿Reconoces esta transacción?
-                            </p>
-
-                            <!-- Action Buttons -->
-                            <table role="presentation" style="width: 100%; margin: 20px 0;">
+                        <td style="background-color: #1E3A8A; padding: 30px 40px; text-align: center;">
+                            <table role="presentation" style="width: 100%;">
                                 <tr>
-                                    <td style="padding: 10px;">
-                                        <a th:href="${confirmUrl}" 
-                                           style="display: block; background-color: #28a745; color: #ffffff; text-decoration: none; padding: 15px 25px; border-radius: 6px; font-size: 16px; font-weight: 600; text-align: center; box-shadow: 0 2px 4px rgba(40,167,69,0.3);">
-                                            ✅ Sí, yo realicé este gasto
+                                    <td style="text-align: center;">
+                                        <h1
+                                            style="margin: 0; color: #ffffff; font-size: 32px; font-weight: 700; letter-spacing: 1px;">
+                                            BankMind
+                                        </h1>
+                                        <p
+                                            style="margin: 12px 0 0 0; color: #93C5FD; font-size: 14px; font-weight: 500; letter-spacing: 0.3px;">
+                                            Inteligencia Financiera en Tiempo Real
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Banner de Alerta -->
+                    <tr>
+                        <td style="background-color: #FEF3C7; border-left: 5px solid #F59E0B; padding: 18px 40px;">
+                            <p style="margin: 0; color: #92400E; font-size: 15px; font-weight: 600;">
+                                ALERTA DE SEGURIDAD: Actividad Sospechosa Detectada
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Contenido Principal -->
+                    <tr>
+                        <td style="padding: 35px 40px;">
+                            <p style="margin: 0 0 20px 0; color: #1F2937; font-size: 15px;">
+                                Estimado(a) <strong th:text="${customerName}">Cliente</strong>,
+                            </p>
+
+                            <p style="margin: 0 0 25px 0; color: #4B5563; font-size: 14px; line-height: 1.6;">
+                                Nuestro sistema de seguridad ha identificado una transacción de <strong>alto
+                                    riesgo</strong> en su tarjeta. Por medidas de seguridad, solicitamos que verifique
+                                si reconoce la siguiente operación:
+                            </p>
+
+                            <!-- Detalles de la Transacción -->
+                            <table
+                                style="width: 100%; border: 1px solid #E5E7EB; border-collapse: collapse; margin: 25px 0;">
+                                <tr style="background-color: #F9FAFB;">
+                                    <td colspan="2" style="padding: 12px 15px; border-bottom: 1px solid #E5E7EB;">
+                                        <strong style="color: #1F2937; font-size: 14px;">DETALLES DE LA
+                                            TRANSACCIÓN</strong>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td
+                                        style="padding: 12px 15px; color: #6B7280; font-size: 13px; width: 35%; border-bottom: 1px solid #F3F4F6;">
+                                        Tarjeta:
+                                    </td>
+                                    <td style="padding: 12px 15px; color: #1F2937; font-size: 14px; font-weight: 600; border-bottom: 1px solid #F3F4F6;"
+                                        th:text="${cardNumber}">
+                                        **** 1234
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td
+                                        style="padding: 12px 15px; color: #6B7280; font-size: 13px; border-bottom: 1px solid #F3F4F6;">
+                                        Monto:
+                                    </td>
+                                    <td style="padding: 12px 15px; color: #DC2626; font-size: 18px; font-weight: 700; border-bottom: 1px solid #F3F4F6;"
+                                        th:text="${amount}">
+                                        $150.00
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td
+                                        style="padding: 12px 15px; color: #6B7280; font-size: 13px; border-bottom: 1px solid #F3F4F6;">
+                                        Comercio:
+                                    </td>
+                                    <td style="padding: 12px 15px; color: #1F2937; font-size: 14px; font-weight: 600; border-bottom: 1px solid #F3F4F6;"
+                                        th:text="${merchant}">
+                                        Amazon.com
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px 15px; color: #6B7280; font-size: 13px;">
+                                        Fecha y Hora:
+                                    </td>
+                                    <td style="padding: 12px 15px; color: #1F2937; font-size: 13px;"
+                                        th:text="${transactionDate}">
+                                        02/02/2026 14:30
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p
+                                style="margin: 30px 0 20px 0; color: #1F2937; font-size: 15px; font-weight: 600; text-align: center;">
+                                ¿Reconoce esta transacción?
+                            </p>
+
+                            <!-- Botones de Acción -->
+                            <table role="presentation" style="width: 100%; margin: 25px 0 30px 0;">
+                                <tr>
+                                    <td style="padding: 8px 0;">
+                                        <a th:href="${confirmUrl}"
+                                            style="display: block; background-color: #1E3A8A; color: #ffffff; text-decoration: none; padding: 16px 25px; text-align: center; font-size: 14px; font-weight: 600; border: none;">
+                                            SÍ, YO REALICÉ ESTE GASTO
                                         </a>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 10px;">
-                                        <a th:href="${blockUrl}" 
-                                           style="display: block; background-color: #dc3545; color: #ffffff; text-decoration: none; padding: 15px 25px; border-radius: 6px; font-size: 16px; font-weight: 600; text-align: center; box-shadow: 0 2px 4px rgba(220,53,69,0.3);">
-                                            🚫 No reconozco este gasto
+                                    <td style="padding: 8px 0;">
+                                        <a th:href="${blockUrl}"
+                                            style="display: block; background-color: #DC2626; color: #ffffff; text-decoration: none; padding: 16px 25px; text-align: center; font-size: 14px; font-weight: 600; border: none;">
+                                            NO RECONOZCO ESTE GASTO
                                         </a>
                                     </td>
                                 </tr>
                             </table>
 
-                            <!-- Warning -->
-                            <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 25px 0; border-radius: 4px;">
-                                <p style="margin: 0; color: #856404; font-size: 13px;">
-                                    <strong>⏰ Importante:</strong> Este enlace expirará en <span th:text="${expiryHours}">24</span> horas. Si no reconoces este gasto, haz clic en el botón rojo para bloquear tu tarjeta inmediatamente.
+                            <!-- Nota Importante -->
+                            <div
+                                style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 25px 0;">
+                                <p style="margin: 0; color: #92400E; font-size: 12px; line-height: 1.5;">
+                                    <strong>IMPORTANTE:</strong> Este enlace expirará en <span
+                                        th:text="${expiryHours}">24</span> horas. Si no reconoce este gasto, presione el
+                                    botón rojo inmediatamente para bloquear su tarjeta.
                                 </p>
                             </div>
                         </td>
@@ -115,15 +145,15 @@
 
                     <!-- Footer -->
                     <tr>
-                        <td style="background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 8px 8px;">
-                            <p style="margin: 0 0 10px 0; color: #666666; font-size: 13px;">
-                                Este es un email automático del Sistema de Seguridad BankMind
+                        <td style="background-color: #F9FAFB; padding: 25px 40px; border-top: 1px solid #E5E7EB;">
+                            <p style="margin: 0 0 8px 0; color: #6B7280; font-size: 12px; text-align: center;">
+                                Este es un correo automático del Sistema de Seguridad de BankMind.
                             </p>
-                            <p style="margin: 0; color: #999999; font-size: 12px;">
-                                Si no solicitaste esta verificación, ignora este mensaje.
+                            <p style="margin: 0 0 15px 0; color: #9CA3AF; font-size: 11px; text-align: center;">
+                                Si no solicitó esta verificación, puede ignorar este mensaje.
                             </p>
-                            <p style="margin: 15px 0 0 0; color: #999999; font-size: 12px;">
-                                © 2026 BankMind. Todos los derechos reservados.
+                            <p style="margin: 0; color: #9CA3AF; font-size: 11px; text-align: center;">
+                                &copy; 2026 BankMind. Todos los derechos reservados.
                             </p>
                         </td>
                     </tr>
@@ -132,4 +162,5 @@
         </tr>
     </table>
 </body>
+
 </html>

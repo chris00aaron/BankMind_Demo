@@ -52,4 +52,7 @@ public class Customer {
 
     @Column(name = "job", length = 150)
     private String job;
+
+    @Column(name = "email", length = 255)
+    private String email;
 }

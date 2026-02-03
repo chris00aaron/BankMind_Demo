@@ -17,10 +17,10 @@ import java.time.Duration;
 @Configuration
 public class WebClientConfig {
 
-    @Value("${fraud.api.base-url}")
+    @Value("${api.base-url}")
     private String fraudApiBaseUrl;
 
-    @Value("${fraud.api.timeout}")
+    @Value("${api.timeout}")
     private int timeout;
 
     /**

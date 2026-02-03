@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, device-scale=1.0">
+    <title th:text="${title}">Tarjeta Bloqueada</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 550px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .icon.blocked {
+            color: #dc3545;
+            animation: shake 0.5s ease-out;
+        }
+
+        .icon.error {
+            color: #dc3545;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        h1.danger {
+            color: #dc3545;
+        }
+
+        .message {
+            font-size: 16px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .alert-card {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+            text-align: left;
+        }
+
+        .alert-card h3 {
+            color: #856404;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .alert-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .alert-card li {
+            padding: 8px 0;
+            color: #856404;
+            font-size: 15px;
+        }
+
+        .alert-card li::before {
+            content: "✓ ";
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .danger-card {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .danger-card p {
+            color: #721c24;
+            font-size: 15px;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+
+        .danger-card .highlight {
+            font-weight: 700;
+            color: #dc3545;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .info-box p {
+            color: #004085;
+            font-size: 15px;
+            margin: 8px 0;
+        }
+
+        .contact-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+
+        .contact-info h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .phone {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin: 15px 0;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            10%,
+            30%,
+            50%,
+            70%,
+            90% {
+                transform: translateX(-5px);
+            }
+
+            20%,
+            40%,
+            60%,
+            80% {
+                transform: translateX(5px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div th:if="${isBlocked}" class="icon blocked">🚫</div>
+        <div th:unless="${isBlocked}" class="icon error">❌</div>
+
+        <h1 th:class="${isBlocked} ? 'danger' : ''" th:text="${title}">Tarjeta Bloqueada</h1>
+
+        <p class="message" th:text="${message}">
+            Tu tarjeta ha sido bloqueada por seguridad.
+        </p>
+
+        <div th:if="${isBlocked}" class="danger-card">
+            <p><span class="highlight">⚠️ Medidas de seguridad activadas:</span></p>
+            <p>✓ Transacción marcada como <span class="highlight">FRAUDE</span></p>
+            <p>✓ Estado cambiado a <span class="highlight">RECHAZADO</span></p>
+            <p>✓ Tarjeta <span class="highlight">BLOQUEADA</span> permanentemente</p>
+            <p>✓ Sistema de IA actualizado con tu reporte</p>
+        </div>
+
+        <div th:if="${isBlocked}" class="alert-card">
+            <h3>📋 Próximos pasos:</h3>
+            <ul>
+                <li>Tu tarjeta actual ha sido desactivada</li>
+                <li>Contacta a servicio al cliente para solicitar una nueva tarjeta</li>
+                <li>Revisa tus últimas transacciones por actividad sospechosa</li>
+                <li>Considera cambiar tus claves de acceso</li>
+            </ul>
+        </div>
+
+        <div th:if="${isBlocked}" class="contact-info">
+            <h3>📞 Servicio al Cliente 24/7</h3>
+            <div class="phone">1-800-BANKMIND</div>
+            <p style="color: #666; font-size: 14px; margin-top: 10px;">
+                También puedes visitar cualquiera de nuestras sucursales
+            </p>
+        </div>
+
+        <div th:unless="${isBlocked}" class="danger-card">
+            <p>⚠️ No pudimos procesar tu solicitud</p>
+            <p>Por favor, contacta inmediatamente a nuestro servicio al cliente</p>
+        </div>
+
+        <div class="info-box" th:if="${isBlocked}">
+            <p><strong>🛡️ Tu seguridad es nuestra prioridad</strong></p>
+            <p style="font-size: 13px;">Gracias por reportar este fraude. Tu acción ayuda a proteger a toda nuestra
+                comunidad bancaria.</p>
+        </div>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #999;">
+            Puedes cerrar esta ventana de forma segura
+        </p>
+    </div>
+</body>
+
+</html>

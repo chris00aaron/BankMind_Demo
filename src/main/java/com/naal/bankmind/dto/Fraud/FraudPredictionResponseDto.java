@@ -36,4 +36,7 @@ public class FraudPredictionResponseDto {
 
     @JsonProperty("recomendacion")
     private String recomendacion;
+
+    @JsonProperty("error")
+    private String error; // Para errores individuales en procesamiento batch
 }

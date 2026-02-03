@@ -70,6 +70,12 @@
 			<artifactId>thymeleaf-extras-springsecurity6</artifactId>
 		</dependency>
 
+	<!-- Email Support -->
+	<dependency>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-mail</artifactId>
+	</dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>

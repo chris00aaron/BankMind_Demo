@@ -48,6 +48,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/**",
+                                "/api/fraud/confirm/**", // Confirmación de transacciones legítimas
+                                "/api/fraud/block/**", // Reporte de fraude y bloqueo
                                 "/api/morosidad/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/customers/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/error",

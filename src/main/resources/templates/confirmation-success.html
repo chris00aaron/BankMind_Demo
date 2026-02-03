@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">Confirmación de Transacción</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 500px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .icon.success {
+            animation: scaleIn 0.5s ease-out;
+        }
+
+        .icon.error {
+            color: #dc3545;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .message {
+            font-size: 16px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .card p {
+            margin: 10px 0;
+            font-size: 15px;
+            color: #555;
+        }
+
+        .card .highlight {
+            color: #28a745;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 14px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 16px;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        @keyframes scaleIn {
+            from {
+                transform: scale(0);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div th:if="${success}" class="icon success">✅</div>
+        <div th:unless="${success}" class="icon error">❌</div>
+
+        <h1 th:text="${title}">Confirmación Exitosa</h1>
+
+        <p class="message" th:text="${message}">
+            Gracias por confirmar. La transacción ha sido aprobada.
+        </p>
+
+        <div class="card" th:if="${success}">
+            <p>✓ Transacción marcada como <span class="highlight">LEGÍTIMA</span></p>
+            <p>✓ Estado cambiado a <span class="highlight">APROBADO</span></p>
+            <p>✓ Sistema de IA actualizado con tu feedback</p>
+        </div>
+
+        <div class="card" th:unless="${success}">
+            <p>⚠️ No pudimos procesar tu solicitud</p>
+            <p>Por favor, contacta a nuestro servicio al cliente</p>
+        </div>
+
+        <p style="margin-top: 30px; font-size: 14px; color: #999;">
+            Puedes cerrar esta ventana de forma segura
+        </p>
+    </div>
+</body>
+
+</html>

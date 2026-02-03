@@ -48,6 +48,9 @@ public class OperationalTransactions {
     @Column(name = "is_fraud_ground_truth")
     private Integer isFraudGroundTruth;
 
+    @Column(name = "status", length = 20)
+    private String status = "PENDING"; // PENDING, APPROVED, REJECTED
+
     // Helper para obtener el nombre de categoría de forma segura
     public String getCategoryName() {
         return category != null ? category.getCategoryName() : null;

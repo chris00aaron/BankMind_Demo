@@ -36,4 +36,8 @@ public class MonthlyHistory {
 
     @Column(name = "expiration_date")
     private LocalDate expirationDate;
+
+    @Column(name = "actual_payment_date")
+    private LocalDate actualPaymentDate;
+
 }

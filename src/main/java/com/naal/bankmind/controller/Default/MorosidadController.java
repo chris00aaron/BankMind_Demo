@@ -53,4 +53,12 @@ public class MorosidadController {
         List<BatchAccountPredictionDTO> results = morosidadService.predecirBatch(request.getRecordIds());
         return ResponseEntity.ok(results);
     }
+
+    @PostMapping("/simulate")
+    public ResponseEntity<com.naal.bankmind.dto.Default.Response.SimulationResponseDTO> simulate(
+            @RequestBody com.naal.bankmind.dto.Default.Request.SimulationRequestDTO request) {
+        com.naal.bankmind.dto.Default.Response.SimulationResponseDTO response = morosidadService
+                .simulatePrediction(request);
+        return ResponseEntity.ok(response);
+    }
 }

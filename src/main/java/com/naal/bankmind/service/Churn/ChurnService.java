@@ -16,9 +16,6 @@ import com.naal.bankmind.entity.RetentionStrategyDef;
 import com.naal.bankmind.entity.CampaignLog;
 import com.naal.bankmind.entity.CampaignTarget;
 import com.naal.bankmind.entity.CampaignTargetKey;
-import com.naal.bankmind.entity.Customer;
-import com.naal.bankmind.entity.AccountDetails;
-import com.naal.bankmind.entity.ChurnPredictions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -57,7 +54,7 @@ public class ChurnService {
     private final CampaignTargetRepository campaignTargetRepository;
     private final RestTemplate restTemplate;
 
-    @Value("${churn.api.base-url:http://localhost:8001}")
+    @Value("${churn.api.base-url:http://localhost:8000}")
     private String churnApiBaseUrl;
 
     public ChurnService(
@@ -419,8 +416,7 @@ public class ChurnService {
             } else if (countryName.equalsIgnoreCase("Germany") || countryName.equalsIgnoreCase("Alemania")) {
                 code = "DE";
                 flag = "🇩🇪";
-            } else if (countryName.equalsIgnoreCase("Spain") || countryName.equalsIgnoreCase("España")
-                    || countryName.equalsIgnoreCase("Spain")) {
+            } else if (countryName.equalsIgnoreCase("Spain") || countryName.equalsIgnoreCase("España")) {
                 code = "ES";
                 flag = "🇪🇸";
             }

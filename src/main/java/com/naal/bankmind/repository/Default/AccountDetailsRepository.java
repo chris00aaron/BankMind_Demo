@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AccountDetailsRepository extends JpaRepository<AccountDetails, Long> {
@@ -15,6 +16,11 @@ public interface AccountDetailsRepository extends JpaRepository<AccountDetails, 
      * Encuentra todas las cuentas de un cliente.
      */
     List<AccountDetails> findByCustomer_IdCustomer(Long idCustomer);
+
+    /**
+     * Encuentra la primera cuenta de un cliente.
+     */
+    Optional<AccountDetails> findFirstByCustomer_IdCustomer(Long idCustomer);
 
     /**
      * Obtiene múltiples cuentas con sus clientes en una sola query.

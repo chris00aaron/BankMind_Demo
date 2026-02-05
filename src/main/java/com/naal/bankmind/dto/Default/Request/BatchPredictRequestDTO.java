@@ -10,4 +10,5 @@ import java.util.List;
 public class BatchPredictRequestDTO {
 
     private List<Long> recordIds;
+    private Boolean includeShap;
 }

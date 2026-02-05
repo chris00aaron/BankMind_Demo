@@ -1,6 +1,7 @@
 package com.naal.bankmind.dto.Default.Response;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * DTO completo con datos del cliente, cuenta y predicción para la vista de
@@ -34,6 +35,13 @@ public record ClientePredictionDetailDTO(
         Double probabilidadPago,
         String nivelRiesgo,
         String mainRiskFactor,
+        List<RiskFactorDTO> riskFactors, // Top 5 factores SHAP
         String modelVersion,
-        BigDecimal estimatedLoss) {
+        BigDecimal estimatedLoss,
+
+        // Nuevos campos de clasificación y comparación
+        String clasificacionSBS, // Normal, CPP, Deficiente, Dudoso, Pérdida
+        Integer percentilRiesgo, // Posición relativa vs cartera (0-100)
+        Double umbralPolitica // Umbral de la política activa (ej: 50.0)
+) {
 }

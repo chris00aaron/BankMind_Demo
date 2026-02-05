@@ -14,4 +14,7 @@ import java.util.List;
 public class BatchMorosidadRequestDTO {
 
     private List<MorosidadRequestDTO> items;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("include_shap")
+    private boolean includeShap;
 }

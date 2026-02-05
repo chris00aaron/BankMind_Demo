@@ -1,6 +1,7 @@
 package com.naal.bankmind.entity.atm;
 
 import java.time.LocalDate;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,9 +11,20 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
-@Data
+@Getter
+@Setter
+@ToString(exclude = "selfTrainingAudit")
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+
 @Entity
 @Table(name = "dataset_withdrawal_prediction", schema = "public")
 public class DatasetWithdrawalPrediction {
@@ -30,14 +42,15 @@ public class DatasetWithdrawalPrediction {
     @Column(name = "count_test", nullable = false)
     private String countTest;
 
-    //fecha inicial
+    // fecha inicial
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
-    //fecha final
+    // fecha final
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
+    @JsonManagedReference("audit-dataset")
     @OneToOne(mappedBy = "dataset", fetch = FetchType.LAZY, optional = false)
     private SelfTrainingAuditWithdrawalModel selfTrainingAudit;
 }

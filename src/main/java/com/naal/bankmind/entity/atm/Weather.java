@@ -3,6 +3,8 @@ package com.naal.bankmind.entity.atm;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -11,9 +13,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-@Data
+@Getter
+@Setter
+@ToString(exclude = "transactions")
 @Entity
 @Table(name = "weathers", schema = "public")
 public class Weather {
@@ -28,6 +34,7 @@ public class Weather {
     @Column(name = "impact", nullable = false)
     private Short impact;
 
+    @JsonManagedReference("weather-transactions")
     @OneToMany(mappedBy = "weather", fetch = FetchType.LAZY)
     private List<DailyAtmTransaction> transactions = new ArrayList<>();
 }

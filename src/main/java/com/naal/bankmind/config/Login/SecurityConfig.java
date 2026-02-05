@@ -48,6 +48,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/**",
+                                "/api/fraud/confirm/**", // Confirmación de transacciones legítimas
+                                "/api/fraud/block/**", // Reporte de fraude y bloqueo
                                 "/api/morosidad/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/customers/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/dashboard/**", // SOLO PARA PRUEBAS QUITAR LUEGO
@@ -55,7 +57,13 @@ public class SecurityConfig {
                                 "/api/warnings/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/model/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/error",
-                                "/actuator/health")
+                                "/actuator/health",
+                                // Recursos estáticos (imágenes, CSS, JS, etc.)
+                                "/images/**",
+                                "/css/**",
+                                "/js/**",
+                                "/static/**",
+                                "/favicon.ico")
                         .permitAll()
                         // Rutas de admin
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")

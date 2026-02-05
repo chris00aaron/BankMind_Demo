@@ -9,6 +9,8 @@ import java.util.Map;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -19,9 +21,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-@Data
+@Getter
+@Setter
+@ToString(exclude = { "selfTrainingAudit", "predictions" })
 @Entity
 @Table(name = "withdrawal_models", schema = "public")
 public class WithdrawalModel {
@@ -55,13 +61,16 @@ public class WithdrawalModel {
     @Column(name = "importances_features", nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> importancesFeatures;
 
+    @JsonBackReference("audit-model")
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_self_training_audit_withdrawal_model", // Columna de la tabla self_training_audit_withdrawal_model (FK)
-                referencedColumnName = "id", // Columna de la tabla self_training_audit_withdrawal_model (PK)
-                nullable = false, // No puede ser null
-                unique = true) // Debe ser único
+    @JoinColumn(name = "id_self_training_audit_withdrawal_model", // Columna de la tabla
+                                                                  // self_training_audit_withdrawal_model (FK)
+            referencedColumnName = "id", // Columna de la tabla self_training_audit_withdrawal_model (PK)
+            nullable = false, // No puede ser null
+            unique = true) // Debe ser único
     private SelfTrainingAuditWithdrawalModel selfTrainingAudit;
 
+    @JsonBackReference("atm-predictions")
     @OneToMany(mappedBy = "withdrawalModel", fetch = FetchType.LAZY)
     private List<DailyWithdrawalPrediction> predictions = new ArrayList<>();
 }

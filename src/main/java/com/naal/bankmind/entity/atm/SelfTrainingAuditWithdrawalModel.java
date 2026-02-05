@@ -8,6 +8,8 @@ import java.util.Map;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -20,9 +22,18 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
-@Data
+@Getter
+@Setter
+@ToString(exclude = { "dataset", "withdrawalModel", "comparedToModel", "comparedModels" })
+@NoArgsConstructor
+@AllArgsConstructor
+
 @Entity
 @Table(name = "self_training_audit_withdrawal_model", schema = "public")
 public class SelfTrainingAuditWithdrawalModel {
@@ -62,23 +73,24 @@ public class SelfTrainingAuditWithdrawalModel {
     @Column(name = "hyperparameters", nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> hyperparameters;
 
+    @JsonBackReference("audit-dataset")
     @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_dataset_withdrawal_prediction",  // Columna de la tabla dataset_withdrawal_prediction (FK)
-                referencedColumnName = "id",  // Columna de la tabla dataset_withdrawal_prediction (PK)
-                nullable = false, // No puede ser null
-                unique = true) // Debe ser único
+    @JoinColumn(name = "id_dataset_withdrawal_prediction", // Columna de la tabla dataset_withdrawal_prediction (FK)
+            referencedColumnName = "id", // Columna de la tabla dataset_withdrawal_prediction (PK)
+            nullable = false, // No puede ser null
+            unique = true) // Debe ser único
     private DatasetWithdrawalPrediction dataset;
 
+    @JsonBackReference("audit-model")
     @OneToOne(mappedBy = "selfTrainingAudit", fetch = FetchType.LAZY, optional = false)
     private WithdrawalModel withdrawalModel;
 
+    @JsonBackReference("audit-compared-to-model")
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "compared_to_model", 
-                referencedColumnName = "id",
-                foreignKey = @ForeignKey(name = "fk_self_training_audit_withdrawal_model_compared_to_model"),
-                nullable = true)
+    @JoinColumn(name = "compared_to_model", referencedColumnName = "id", foreignKey = @ForeignKey(name = "fk_self_training_audit_withdrawal_model_compared_to_model"), nullable = true)
     private SelfTrainingAuditWithdrawalModel comparedToModel;
 
+    @JsonBackReference("audit-compared-to-model")
     @OneToMany(mappedBy = "comparedToModel", fetch = FetchType.LAZY)
     private List<SelfTrainingAuditWithdrawalModel> comparedModels;
 }

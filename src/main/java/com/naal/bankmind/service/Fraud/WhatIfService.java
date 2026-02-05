@@ -34,6 +34,7 @@ public class WhatIfService {
     private final TransactionRepository transactionRepository;
     private final CategoryRepository categoryRepository;
     private final FraudPredictionRepository fraudPredictionRepository;
+    private final FraudEmailService fraudEmailService;
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -43,12 +44,14 @@ public class WhatIfService {
             FraudApiClient fraudApiClient,
             TransactionRepository transactionRepository,
             CategoryRepository categoryRepository,
-            FraudPredictionRepository fraudPredictionRepository) {
+            FraudPredictionRepository fraudPredictionRepository,
+            FraudEmailService fraudEmailService) {
         this.creditCardRepository = creditCardRepository;
         this.fraudApiClient = fraudApiClient;
         this.transactionRepository = transactionRepository;
         this.categoryRepository = categoryRepository;
         this.fraudPredictionRepository = fraudPredictionRepository;
+        this.fraudEmailService = fraudEmailService;
     }
 
     /**
@@ -65,6 +68,16 @@ public class WhatIfService {
                 return WhatIfResponseDto.builder()
                         .customerFound(false)
                         .error("No se encontró cliente para la tarjeta: " + request.getCcNum())
+                        .build();
+            }
+
+            // VALIDACIÓN CRÍTICA: Verificar que la tarjeta esté activa
+            if (creditCard.getIsActive() == null || !creditCard.getIsActive()) {
+                return WhatIfResponseDto.builder()
+                        .customerFound(true)
+                        .error("TARJETA BLOQUEADA: Esta tarjeta ha sido bloqueada por seguridad. " +
+                                "No se pueden procesar transacciones. " +
+                                "Para más información, contacte a servicio al cliente: 1-800-BANKMIND")
                         .build();
             }
 
@@ -111,6 +124,9 @@ public class WhatIfService {
 
             // 7. Si saveToDB es true, guardar transacción y predicción
             boolean savedToDB = false;
+            OperationalTransactions savedTransaction = null;
+            FraudPredictions savedPrediction = null;
+
             if (Boolean.TRUE.equals(request.getSaveToDB())) {
                 if (request.getMerchant() == null || request.getMerchant().trim().isEmpty()) {
                     return WhatIfResponseDto.builder()
@@ -118,8 +134,26 @@ public class WhatIfService {
                             .error("El campo 'merchant' es requerido para guardar en BD")
                             .build();
                 }
-                saveTransactionAndPrediction(creditCard, request, simulatedDateTime, transactionId, apiResponse);
+
+                // Guardar transacción y predicción
+                Object[] saved = saveTransactionAndPrediction(creditCard, request, simulatedDateTime, transactionId,
+                        apiResponse);
+                savedTransaction = (OperationalTransactions) saved[0];
+                savedPrediction = (FraudPredictions) saved[1];
                 savedToDB = true;
+
+                // Decisión basada en veredicto de IA
+                if ("ALTO RIESGO".equals(apiResponse.getVeredicto())) {
+                    // Mantener PENDING y enviar email si el customer tiene email configurado
+                    if (creditCard.getCustomer().getEmail() != null &&
+                            !creditCard.getCustomer().getEmail().trim().isEmpty()) {
+                        fraudEmailService.sendFraudAlert(savedTransaction, savedPrediction);
+                    }
+                } else {
+                    // Si es BAJO RIESGO, aprobar automáticamente
+                    savedTransaction.setStatus("APPROVED");
+                    transactionRepository.save(savedTransaction);
+                }
             }
 
             // 8. Construir respuesta enriquecida
@@ -156,8 +190,10 @@ public class WhatIfService {
 
     /**
      * Guarda la transacción y la predicción en BD
+     * 
+     * @return Object[] con [0] = OperationalTransactions, [1] = FraudPredictions
      */
-    private void saveTransactionAndPrediction(
+    private Object[] saveTransactionAndPrediction(
             CreditCards creditCard,
             WhatIfRequestDto request,
             LocalDateTime transDateTime,
@@ -220,7 +256,9 @@ public class WhatIfService {
             }
         }
 
-        fraudPredictionRepository.save(prediction);
+        FraudPredictions savedPrediction = fraudPredictionRepository.save(prediction);
+
+        return new Object[] { savedTransaction, savedPrediction };
     }
 
     /**

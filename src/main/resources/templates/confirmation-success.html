@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title}">Confirmación de Transacción</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #F3F4F6;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border: 1px solid #E5E7EB;
+            max-width: 550px;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .header {
+            background-color: #1E3A8A;
+            padding: 30px 40px;
+            text-align: center;
+        }
+
+        .logo {
+            height: 45px;
+            margin-bottom: 12px;
+        }
+
+        .header h1 {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 600;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 25px;
+        }
+
+        .status-badge.success {
+            background-color: #D1FAE5;
+            color: #065F46;
+            border: 1px solid #6EE7B7;
+        }
+
+        .status-badge.error {
+            background-color: #FEE2E2;
+            color: #991B1B;
+            border: 1px solid #FCA5A5;
+        }
+
+        h2 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #1F2937;
+        }
+
+        .message {
+            font-size: 15px;
+            color: #4B5563;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .info-card {
+            background-color: #EFF6FF;
+            border: 1px solid #DBEAFE;
+            border-left: 4px solid #3B82F6;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .info-card p {
+            margin: 8px 0;
+            font-size: 14px;
+            color: #1E40AF;
+        }
+
+        .info-card .highlight {
+            color: #1E3A8A;
+            font-weight: 700;
+            font-size: 15px;
+        }
+
+        .error-card {
+            background-color: #FEF3C7;
+            border: 1px solid #FDE68A;
+            border-left: 4px solid #F59E0B;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .error-card p {
+            color: #92400E;
+            font-size: 14px;
+            margin: 8px 0;
+        }
+
+        .footer-text {
+            margin-top: 30px;
+            font-size: 13px;
+            color: #9CA3AF;
+            text-align: center;
+        }
+
+        .security-note {
+            background-color: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            padding: 20px;
+            margin: 25px 0;
+            text-align: center;
+        }
+
+        .security-note p {
+            color: #6B7280;
+            font-size: 13px;
+            margin: 5px 0;
+        }
+
+        .security-note strong {
+            color: #1F2937;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <img src="/images/logo_BankMind.png" alt="BankMind" class="logo">
+            <h1>BankMind</h1>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div th:if="${success}" class="status-badge success">CONFIRMACIÓN EXITOSA</div>
+            <div th:unless="${success}" class="status-badge error">ERROR EN EL PROCESO</div>
+
+            <h2 th:text="${title}">Confirmación Exitosa</h2>
+
+            <p class="message" th:text="${message}">
+                Gracias por confirmar. La transacción ha sido aprobada.
+            </p>
+
+            <!-- Confirmación Exitosa -->
+            <div th:if="${success}" class="info-card">
+                <p>• Transacción marcada como <span class="highlight">LEGÍTIMA</span></p>
+                <p>• Estado actualizado a <span class="highlight">APROBADO</span></p>
+                <p>• Sistema actualizado con su confirmación</p>
+            </div>
+
+            <!-- Nota de Seguridad (Success) -->
+            <div th:if="${success}" class="security-note">
+                <p><strong>CONFIRMACIÓN PROCESADA</strong></p>
+                <p>Su transacción ha sido verificada y aprobada exitosamente.</p>
+                <p>El cargo aparecerá reflejado en su estado de cuenta.</p>
+            </div>
+
+            <!-- Mensaje de Error -->
+            <div th:unless="${success}" class="error-card">
+                <p><strong>No se pudo procesar su solicitud.</strong></p>
+                <p>Por favor, contacte a nuestro servicio al cliente para asistencia inmediata.</p>
+                <p style="margin-top: 15px; font-weight: 600;">Teléfono: 1-800-BANKMIND</p>
+            </div>
+
+            <p class="footer-text">
+                Puede cerrar esta ventana de forma segura
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

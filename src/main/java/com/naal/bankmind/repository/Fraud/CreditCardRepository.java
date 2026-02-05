@@ -22,4 +22,10 @@ public interface CreditCardRepository extends JpaRepository<CreditCards, Long> {
             "LEFT JOIN FETCH cust.gender g " +
             "WHERE c.ccNum = :ccNum")
     Optional<CreditCards> findByIdWithCustomerData(Long ccNum);
+
+    /**
+     * Contar tarjetas bloqueadas
+     * Para dashboard: mostrar tarjetas bloqueadas por fraude
+     */
+    long countByIsActive(Boolean isActive);
 }

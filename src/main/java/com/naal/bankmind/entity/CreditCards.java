@@ -15,4 +15,17 @@ public class CreditCards {
     @ManyToOne
     @JoinColumn(name = "id_customer")
     private Customer customer;
+
+    @Column(name = "is_active")
+    private Boolean isActive = true;
+
+    // Helper method to get masked card number for emails
+    public String getMaskedCardNumber() {
+        if (ccNum == null)
+            return "****";
+        String cardStr = String.valueOf(ccNum);
+        if (cardStr.length() < 4)
+            return "****";
+        return "**** " + cardStr.substring(cardStr.length() - 4);
+    }
 }

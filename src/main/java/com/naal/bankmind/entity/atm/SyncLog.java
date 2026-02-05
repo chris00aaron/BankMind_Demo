@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,14 +16,20 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-@Data
+@Getter
+@Setter
+@ToString(exclude = { "transactions", "atmStatuses" })
 @Entity
 @Table(name = "sync_logs", schema = "public")
 public class SyncLog {
-    
-    public enum SyncStatus {IN_PROGRESS, SUCCESS, FAILED}
+
+    public enum SyncStatus {
+        IN_PROGRESS, SUCCESS, FAILED
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -53,9 +61,11 @@ public class SyncLog {
     @Column(name = "source_system", nullable = false, length = 50)
     private String sourceSystem = "BANCO_CENTRAL";
 
+    @JsonManagedReference("syncLog-transactions")
     @OneToMany(mappedBy = "syncLog", fetch = FetchType.LAZY)
     private List<DailyAtmTransaction> transactions = new ArrayList<>();
 
+    @JsonManagedReference("syncLog-atmStatuses")
     @OneToMany(mappedBy = "lastSync", fetch = FetchType.LAZY)
     private List<AtmCurrentStatus> atmStatuses = new ArrayList<>();
 }

@@ -4,7 +4,6 @@ import com.naal.bankmind.dto.Fraud.*;
 import com.naal.bankmind.entity.*;
 import com.naal.bankmind.repository.Fraud.CategoryRepository;
 import com.naal.bankmind.repository.Fraud.CreditCardRepository;
-import com.naal.bankmind.repository.Fraud.FraudPredictionRepository;
 import com.naal.bankmind.repository.Fraud.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,10 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Servicio que orquesta el flujo completo de procesamiento de transacciones:
@@ -66,6 +62,14 @@ public class TransactionService {
             CreditCards creditCard = creditCardRepository.findById(request.getCcNum())
                     .orElseThrow(() -> new RuntimeException(
                             "Tarjeta no encontrada: " + request.getCcNum()));
+
+            // VALIDACIÓN CRÍTICA: Verificar que la tarjeta esté activa
+            if (creditCard.getIsActive() == null || !creditCard.getIsActive()) {
+                throw new RuntimeException(
+                        "TARJETA BLOQUEADA: Esta tarjeta ha sido bloqueada por seguridad. " +
+                                "No se pueden procesar transacciones. " +
+                                "Contacte a servicio al cliente: 1-800-BANKMIND");
+            }
 
             Customer customer = creditCard.getCustomer();
             if (customer == null) {

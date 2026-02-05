@@ -71,6 +71,16 @@ public class WhatIfService {
                         .build();
             }
 
+            // VALIDACIÓN CRÍTICA: Verificar que la tarjeta esté activa
+            if (creditCard.getIsActive() == null || !creditCard.getIsActive()) {
+                return WhatIfResponseDto.builder()
+                        .customerFound(true)
+                        .error("TARJETA BLOQUEADA: Esta tarjeta ha sido bloqueada por seguridad. " +
+                                "No se pueden procesar transacciones. " +
+                                "Para más información, contacte a servicio al cliente: 1-800-BANKMIND")
+                        .build();
+            }
+
             Customer customer = creditCard.getCustomer();
             Localization location = customer.getLocalization();
             Gender gender = customer.getGender();

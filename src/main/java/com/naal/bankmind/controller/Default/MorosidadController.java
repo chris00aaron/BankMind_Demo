@@ -5,6 +5,8 @@ import com.naal.bankmind.dto.Default.Request.BatchPredictRequestDTO;
 import com.naal.bankmind.dto.Default.Response.ClientePredictionDetailDTO;
 import com.naal.bankmind.dto.Default.Response.MorosidadResponseDTO;
 import com.naal.bankmind.dto.Default.Response.BatchAccountPredictionDTO;
+import com.naal.bankmind.dto.Default.Response.BatchPredictionWrapperDTO;
+import com.naal.bankmind.repository.Default.DefaultPoliciesRepository;
 import com.naal.bankmind.service.Default.MorosidadService;
 
 import lombok.RequiredArgsConstructor;
@@ -45,13 +47,16 @@ public class MorosidadController {
 
     /**
      * Endpoint batch para predicción por lotes.
-     * Acepta lista de recordIds y retorna predicciones para todas las cuentas.
+     * Acepta lista de recordIds y retorna predicciones con umbral de política y
+     * resumen SHAP.
      */
     @PostMapping("/predict/batch")
-    public ResponseEntity<List<BatchAccountPredictionDTO>> predictBatch(
+    public ResponseEntity<BatchPredictionWrapperDTO> predictBatch(
             @RequestBody BatchPredictRequestDTO request) {
-        List<BatchAccountPredictionDTO> results = morosidadService.predecirBatch(request.getRecordIds());
-        return ResponseEntity.ok(results);
+        // Delegar lógica completa al servicio
+        boolean includeShap = request.getIncludeShap() != null ? request.getIncludeShap() : false;
+        BatchPredictionWrapperDTO response = morosidadService.predecirBatch(request.getRecordIds(), includeShap);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/simulate")

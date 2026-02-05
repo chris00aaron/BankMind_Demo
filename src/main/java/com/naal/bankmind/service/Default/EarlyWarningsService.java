@@ -3,7 +3,9 @@ package com.naal.bankmind.service.Default;
 import com.naal.bankmind.dto.Default.Response.EarlyWarningsPreviewDTO;
 import com.naal.bankmind.dto.Default.Response.EarlyWarningsPreviewDTO.AlertaDTO;
 import com.naal.bankmind.entity.Customer;
+import com.naal.bankmind.entity.Default.DefaultPolicies;
 import com.naal.bankmind.entity.Default.DefaultPrediction;
+import com.naal.bankmind.repository.Default.DefaultPoliciesRepository;
 import com.naal.bankmind.repository.Default.DefaultPredictionRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -27,7 +29,18 @@ import java.util.stream.Collectors;
 public class EarlyWarningsService {
 
         private final DefaultPredictionRepository predictionRepository;
+        private final DefaultPoliciesRepository policiesRepository;
         private final EntityManager entityManager;
+
+        /**
+         * Obtiene el umbral de default de la política activa.
+         * Si no hay política activa, usa 0.5 como default.
+         */
+        private double getDefaultThreshold() {
+                return policiesRepository.findByIsActiveTrue()
+                                .map(p -> p.getThresholdApproval().doubleValue())
+                                .orElse(0.5);
+        }
 
         /**
          * Genera preview de alertas basado en umbrales temporales.
@@ -50,7 +63,11 @@ public class EarlyWarningsService {
                 List<AlertaDTO> alertas = new ArrayList<>();
                 String fechaActual = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
 
-                // Alerta 1: Clientes con riesgo crítico (prob pago < 15%)
+                // Set para rastrear cuentas únicas y evitar doble conteo
+                Set<Long> cuentasUnicasGlobal = new HashSet<>();
+                double dineroTotalGlobal = 0.0;
+
+                // Alerta 1: Cuentas con riesgo crítico (prob pago < 15%)
                 List<DefaultPrediction> criticos = latestPredictions.stream()
                                 .filter(p -> p.getDefaultProbability() != null)
                                 .filter(p -> p.getDefaultProbability().doubleValue() > 0.85)
@@ -62,11 +79,21 @@ public class EarlyWarningsService {
                                         .mapToDouble(p -> p.getEstimatedLoss().doubleValue())
                                         .sum();
 
+                        // Agregar recordIds al set global
+                        criticos.forEach(p -> {
+                                try {
+                                        cuentasUnicasGlobal
+                                                        .add(p.getMonthlyHistory().getAccountDetails().getRecordId());
+                                } catch (Exception e) {
+                                        /* ignorar */ }
+                        });
+                        dineroTotalGlobal += dinero;
+
                         alertas.add(new AlertaDTO(
                                         "alert-critico",
                                         "critico",
-                                        "Clientes en Riesgo Crítico",
-                                        criticos.size() + " clientes tienen menos de 15% de probabilidad de pago",
+                                        "Cuentas en Riesgo Crítico",
+                                        criticos.size() + " cuentas tienen menos de 15% de probabilidad de pago",
                                         criticos.size(),
                                         dinero,
                                         "urgente",
@@ -74,23 +101,33 @@ public class EarlyWarningsService {
                                         "Contacto inmediato y evaluación de reestructuración"));
                 }
 
-                // Alerta 2: Clientes bajo el umbral configurado
+                // Alerta 2: Cuentas bajo el umbral configurado (excluyendo críticos)
                 List<DefaultPrediction> bajoUmbral = latestPredictions.stream()
                                 .filter(p -> p.getDefaultProbability() != null)
                                 .filter(p -> p.getDefaultProbability().doubleValue() > defaultThreshold)
+                                .filter(p -> p.getDefaultProbability().doubleValue() <= 0.85) // Excluir críticos
                                 .collect(Collectors.toList());
 
-                if (!bajoUmbral.isEmpty() && bajoUmbral.size() != criticos.size()) {
+                if (!bajoUmbral.isEmpty()) {
                         double dinero = bajoUmbral.stream()
                                         .filter(p -> p.getEstimatedLoss() != null)
                                         .mapToDouble(p -> p.getEstimatedLoss().doubleValue())
                                         .sum();
 
+                        bajoUmbral.forEach(p -> {
+                                try {
+                                        cuentasUnicasGlobal
+                                                        .add(p.getMonthlyHistory().getAccountDetails().getRecordId());
+                                } catch (Exception e) {
+                                        /* ignorar */ }
+                        });
+                        dineroTotalGlobal += dinero;
+
                         alertas.add(new AlertaDTO(
                                         "alert-umbral",
                                         "alto",
-                                        "Clientes Bajo Umbral de Riesgo",
-                                        bajoUmbral.size() + " clientes bajo el umbral de " + (int) thresholdProbability
+                                        "Cuentas Bajo Umbral de Riesgo",
+                                        bajoUmbral.size() + " cuentas bajo el umbral de " + (int) thresholdProbability
                                                         + "% de probabilidad de pago",
                                         bajoUmbral.size(),
                                         dinero,
@@ -99,10 +136,11 @@ public class EarlyWarningsService {
                                         "Revisión de casos y contacto preventivo"));
                 }
 
-                // Alerta 3: Clientes jóvenes en riesgo (< 30 años)
+                // Alerta 3: Cuentas de clientes jóvenes en riesgo (< 30 años)
+                // Nota: Esta es informativa, no suma al total global para evitar doble conteo
                 List<DefaultPrediction> jovenesRiesgo = latestPredictions.stream()
                                 .filter(p -> p.getDefaultProbability() != null
-                                                && p.getDefaultProbability().doubleValue() > 0.5)
+                                                && p.getDefaultProbability().doubleValue() > getDefaultThreshold())
                                 .filter(p -> {
                                         try {
                                                 Customer customer = p.getMonthlyHistory().getAccountDetails()
@@ -124,8 +162,9 @@ public class EarlyWarningsService {
                         alertas.add(new AlertaDTO(
                                         "alert-jovenes",
                                         "tendencia",
-                                        "Clientes Jóvenes en Riesgo",
-                                        jovenesRiesgo.size() + " clientes menores de 30 años presentan riesgo elevado",
+                                        "Cuentas de Clientes Jóvenes en Riesgo",
+                                        jovenesRiesgo.size()
+                                                        + " cuentas de clientes menores de 30 años presentan riesgo elevado",
                                         jovenesRiesgo.size(),
                                         dinero,
                                         "media",
@@ -137,7 +176,7 @@ public class EarlyWarningsService {
                 Map<String, Long> riskFactorCount = latestPredictions.stream()
                                 .filter(p -> p.getMainRiskFactor() != null && !p.getMainRiskFactor().isEmpty())
                                 .filter(p -> p.getDefaultProbability() != null
-                                                && p.getDefaultProbability().doubleValue() > 0.5)
+                                                && p.getDefaultProbability().doubleValue() > getDefaultThreshold())
                                 .collect(Collectors.groupingBy(
                                                 DefaultPrediction::getMainRiskFactor,
                                                 Collectors.counting()));
@@ -154,7 +193,7 @@ public class EarlyWarningsService {
                                                 "alert-factor",
                                                 "tendencia",
                                                 "Factor de Riesgo Dominante: " + topFactor,
-                                                count + " clientes en riesgo comparten este factor como principal causa",
+                                                count + " cuentas en riesgo comparten este factor como principal causa",
                                                 (int) count,
                                                 0,
                                                 "media",
@@ -163,14 +202,14 @@ public class EarlyWarningsService {
                         }
                 }
 
-                // Calcular totales
-                long totalClientes = alertas.stream().mapToInt(AlertaDTO::getClientesAfectados).sum();
-                double totalDinero = alertas.stream().mapToDouble(AlertaDTO::getDineroEnRiesgo).sum();
+                // Usar conteo único de cuentas y dinero acumulado (sin doble conteo)
+                long totalCuentas = cuentasUnicasGlobal.size();
+                double totalDinero = dineroTotalGlobal;
 
-                log.info("Preview generado: {} alertas, {} clientes, ${} en riesgo",
-                                alertas.size(), totalClientes, totalDinero);
+                log.info("Preview generado: {} alertas, {} cuentas únicas, ${} en riesgo",
+                                alertas.size(), totalCuentas, totalDinero);
 
-                return new EarlyWarningsPreviewDTO(totalClientes, totalDinero, alertas);
+                return new EarlyWarningsPreviewDTO(totalCuentas, totalDinero, alertas);
         }
 
         /**

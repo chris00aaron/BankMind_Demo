@@ -13,7 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 public class EarlyWarningsPreviewDTO {
 
-    private long totalClientesEnAlerta;
+    private long totalCuentasEnAlerta;
     private double totalDineroEnRiesgo;
     private List<AlertaDTO> alertas;
 
@@ -25,7 +25,7 @@ public class EarlyWarningsPreviewDTO {
         private String tipo; // critico, alto, tendencia, vencimiento
         private String titulo;
         private String descripcion;
-        private int clientesAfectados;
+        private int cuentasAfectadas;
         private double dineroEnRiesgo;
         private String prioridad; // urgente, alta, media
         private String fecha;

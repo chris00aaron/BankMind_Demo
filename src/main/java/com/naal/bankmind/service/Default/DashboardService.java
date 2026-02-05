@@ -4,9 +4,11 @@ import com.naal.bankmind.dto.Default.Response.DashboardMorosidadDTO;
 import com.naal.bankmind.dto.Default.Response.DashboardMorosidadDTO.*;
 import com.naal.bankmind.entity.Customer;
 import com.naal.bankmind.entity.MonthlyHistory;
+import com.naal.bankmind.entity.Default.DefaultPolicies;
 import com.naal.bankmind.entity.Default.DefaultPrediction;
 import com.naal.bankmind.entity.Default.TrainingHistory;
 import com.naal.bankmind.repository.Default.CustomerRepository;
+import com.naal.bankmind.repository.Default.DefaultPoliciesRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
 public class DashboardService {
 
     private final CustomerRepository customerRepository;
+    private final DefaultPoliciesRepository policiesRepository;
     private final EntityManager entityManager;
 
     /**
@@ -53,6 +56,16 @@ public class DashboardService {
 
         log.info("Dashboard calculado exitosamente");
         return dashboard;
+    }
+
+    /**
+     * Obtiene el umbral de default de la política activa.
+     * Si no hay política activa, usa 0.5 como default.
+     */
+    private double getDefaultThreshold() {
+        return policiesRepository.findByIsActiveTrue()
+                .map(p -> p.getThresholdApproval().doubleValue())
+                .orElse(0.5);
     }
 
     /**
@@ -97,31 +110,41 @@ public class DashboardService {
 
     /**
      * Calcula métricas resumen usando solo últimas predicciones.
+     * NOTA: Cuenta CUENTAS, no clientes.
      */
     private MetricasResumen calcularMetricasResumen(List<DefaultPrediction> latestPredictions) {
-        long totalClientes = customerRepository.count();
+        // Total de cuentas CON predicción (son las que estamos analizando)
+        long totalCuentas = latestPredictions.size();
 
-        long clientesEnRiesgo = latestPredictions.stream()
+        // Cuentas que superan el umbral de riesgo
+        long cuentasEnRiesgo = latestPredictions.stream()
                 .filter(p -> p.getDefaultProbability() != null)
-                .filter(p -> p.getDefaultProbability().doubleValue() > 0.5)
-                .map(p -> p.getMonthlyHistory().getAccountDetails().getCustomer().getIdCustomer())
-                .distinct()
+                .filter(p -> p.getDefaultProbability().doubleValue() > getDefaultThreshold())
                 .count();
 
+        // Suma de pérdida estimada solo de cuentas morosas (superan umbral)
         double dineroEnRiesgo = latestPredictions.stream()
                 .filter(p -> Boolean.TRUE.equals(p.getDefaultPaymentNextMonth()))
                 .filter(p -> p.getEstimatedLoss() != null)
                 .mapToDouble(p -> p.getEstimatedLoss().doubleValue())
                 .sum();
 
-        double tasaMorosidad = totalClientes > 0
-                ? (clientesEnRiesgo * 100.0 / totalClientes)
+        // Suma de pérdida estimada de TODAS las cuentas
+        double dineroEnRiesgoTotal = latestPredictions.stream()
+                .filter(p -> p.getEstimatedLoss() != null)
+                .mapToDouble(p -> p.getEstimatedLoss().doubleValue())
+                .sum();
+
+        // Tasa = cuentas en riesgo / total cuentas analizadas
+        double tasaMorosidad = totalCuentas > 0
+                ? (cuentasEnRiesgo * 100.0 / totalCuentas)
                 : 0.0;
 
         return new MetricasResumen(
-                totalClientes,
-                clientesEnRiesgo,
+                totalCuentas,
+                cuentasEnRiesgo,
                 dineroEnRiesgo,
+                dineroEnRiesgoTotal,
                 Math.round(tasaMorosidad * 10.0) / 10.0);
     }
 
@@ -300,7 +323,7 @@ public class DashboardService {
         // Filtrar top 10 de alto riesgo
         List<DefaultPrediction> altoRiesgo = latestPredictions.stream()
                 .filter(p -> p.getDefaultProbability() != null)
-                .filter(p -> p.getDefaultProbability().doubleValue() > 0.5)
+                .filter(p -> p.getDefaultProbability().doubleValue() > getDefaultThreshold())
                 .sorted((a, b) -> b.getDefaultProbability().compareTo(a.getDefaultProbability()))
                 .limit(10)
                 .collect(Collectors.toList());
@@ -331,7 +354,7 @@ public class DashboardService {
                         (customer.getSurname() != null ? customer.getSurname() : "");
 
                 result.add(new ClienteAltoRiesgo(
-                        customer.getIdCustomer(),
+                        recordId, // ID de la cuenta (recordId)
                         nombre.trim(),
                         Math.round(probPago * 10.0) / 10.0,
                         nivelRiesgo,

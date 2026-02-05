@@ -24,9 +24,10 @@ public class DashboardMorosidadDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MetricasResumen {
-        private long totalClientes;
-        private long clientesEnRiesgo;
-        private double dineroEnRiesgo;
+        private long totalCuentas; // Total de cuentas con predicción
+        private long cuentasEnRiesgo; // Cuentas que superan el umbral
+        private double dineroEnRiesgo; // Pérdida solo de morosos (superan umbral)
+        private double dineroEnRiesgoTotal; // Pérdida de TODAS las cuentas
         private double tasaMorosidadPredicha;
     }
 
@@ -69,7 +70,7 @@ public class DashboardMorosidadDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ClienteAltoRiesgo {
-        private Long id;
+        private Long recordId; // ID de la cuenta (record_id)
         private String nombre;
         private double probabilidadPago;
         private String nivelRiesgo;

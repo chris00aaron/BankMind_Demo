@@ -12,6 +12,9 @@ public class BatchMorosidadResponseDTO {
 
     private List<BatchItemResponseDTO> predictions;
 
+    @JsonProperty("shap_summary")
+    private List<RiskFactorDTO> shapSummary;
+
     @JsonProperty("model_version")
     private String modelVersion;
 

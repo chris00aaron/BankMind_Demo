@@ -30,4 +30,5 @@ public class BatchAccountPredictionDTO {
     private Double probabilidadPago;
     private String nivelRiesgo;
     private BigDecimal montoCuota;
+    private BigDecimal estimatedLoss; // Pérdida estimada (EAD × PD × LGD)
 }

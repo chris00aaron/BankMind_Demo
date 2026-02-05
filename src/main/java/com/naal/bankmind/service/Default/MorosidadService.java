@@ -8,11 +8,15 @@ import com.naal.bankmind.dto.Default.Response.MorosidadResponseDTO;
 import com.naal.bankmind.dto.Default.Response.BatchMorosidadResponseDTO;
 import com.naal.bankmind.dto.Default.Response.BatchItemResponseDTO;
 import com.naal.bankmind.dto.Default.Response.BatchAccountPredictionDTO;
+import com.naal.bankmind.dto.Default.Response.BatchPredictionWrapperDTO;
+import com.naal.bankmind.dto.Default.Response.RiskFactorDTO;
 import com.naal.bankmind.entity.AccountDetails;
 import com.naal.bankmind.entity.Customer;
 import com.naal.bankmind.entity.MonthlyHistory;
+import com.naal.bankmind.entity.Default.DefaultPolicies;
 import com.naal.bankmind.entity.Default.DefaultPrediction;
 import com.naal.bankmind.repository.Default.AccountDetailsRepository;
+import com.naal.bankmind.repository.Default.DefaultPoliciesRepository;
 import com.naal.bankmind.repository.Default.DefaultPredictionRepository;
 import com.naal.bankmind.repository.Default.MonthlyHistoryRepository;
 
@@ -48,6 +52,8 @@ public class MorosidadService {
     private final AccountDetailsRepository accountDetailsRepository;
     private final MonthlyHistoryRepository monthlyHistoryRepository;
     private final DefaultPredictionRepository defaultPredictionRepository;
+    private final DefaultPoliciesRepository policiesRepository;
+    private final DefaultPoliciesRepository defaultPoliciesRepository;
 
     /**
      * Realiza una predicción de morosidad para una cuenta.
@@ -81,7 +87,7 @@ public class MorosidadService {
             throw new RuntimeException("Error al comunicarse con el servicio de predicción de morosidad", e);
         }
 
-        guardarPrediccion(historial.get(0), response, account.getLimitBal());
+        guardarPrediccion(historial.get(0), response);
         return response;
     }
 
@@ -90,11 +96,11 @@ public class MorosidadService {
      * OPTIMIZADO: Solo 2 queries en lugar de N+1.
      */
     @Transactional
-    public List<BatchAccountPredictionDTO> predecirBatch(List<Long> recordIds) {
+    public BatchPredictionWrapperDTO predecirBatch(List<Long> recordIds, boolean includeShap) {
         log.info("Iniciando predicción batch para {} cuentas", recordIds.size());
 
         if (recordIds.isEmpty()) {
-            return new ArrayList<>();
+            return new BatchPredictionWrapperDTO(new ArrayList<>(), 50.0, null);
         }
 
         // QUERY 1: Cargar todas las cuentas con sus clientes en una sola query
@@ -139,12 +145,12 @@ public class MorosidadService {
 
         if (apiRequests.isEmpty()) {
             log.warn("No hay cuentas válidas para procesar");
-            return new ArrayList<>();
+            return new BatchPredictionWrapperDTO(new ArrayList<>(), 50.0, null);
         }
 
         log.info("Preparadas {} cuentas para predicción batch", apiRequests.size());
 
-        BatchMorosidadRequestDTO batchRequest = new BatchMorosidadRequestDTO(apiRequests);
+        BatchMorosidadRequestDTO batchRequest = new BatchMorosidadRequestDTO(apiRequests, includeShap);
         BatchMorosidadResponseDTO batchResponse;
         try {
             batchResponse = morosidadClient.predictBatch(batchRequest);
@@ -170,10 +176,11 @@ public class MorosidadService {
                     item.isDefaultPayment(),
                     item.getProbabilidadDefault(),
                     item.getMainRiskFactor(),
+                    null, // riskFactors - batch no calcula SHAP individual
                     batchResponse.getModelVersion());
 
             // Crear predicción sin guardar aún
-            DefaultPrediction pred = crearPrediccion(historial.get(0), singleResponse, account.getLimitBal());
+            DefaultPrediction pred = crearPrediccion(historial.get(0), singleResponse);
             predictionsToSave.add(pred);
 
             double probabilidadPago = (1.0 - item.getProbabilidadDefault()) * 100;
@@ -188,6 +195,9 @@ public class MorosidadService {
                     ? mapMarriage(customer.getMarriage().getIdMarriage())
                     : "Otro";
 
+            // Calcular pérdida estimada con fórmula EL = EAD × PD × LGD
+            BigDecimal estimatedLoss = calcularPerdidaEstimada(singleResponse, historial.get(0).getBillAmtX());
+
             results.add(new BatchAccountPredictionDTO(
                     customer.getIdCustomer(),
                     nombre.trim(),
@@ -199,7 +209,8 @@ public class MorosidadService {
                     account.getBalance(),
                     probabilidadPago,
                     nivelRiesgo,
-                    historial.get(0).getBillAmtX()));
+                    historial.get(0).getBillAmtX(),
+                    estimatedLoss));
         }
 
         // Guardar todas las predicciones en una sola operación batch
@@ -209,7 +220,13 @@ public class MorosidadService {
         }
 
         log.info("Predicción batch completada: {} resultados", results.size());
-        return results;
+
+        // Obtener umbral de política activa
+        Double umbralPolitica = defaultPoliciesRepository.findByIsActiveTrue()
+                .map(p -> p.getThresholdApproval().doubleValue() * 100)
+                .orElse(50.0);
+
+        return new BatchPredictionWrapperDTO(results, umbralPolitica, batchResponse.getShapSummary());
     }
 
     /**
@@ -238,7 +255,7 @@ public class MorosidadService {
             throw new RuntimeException("Error al comunicarse con el servicio de predicción", e);
         }
 
-        guardarPrediccion(historial.get(0), response, account.getLimitBal());
+        guardarPrediccion(historial.get(0), response);
 
         int cuotasAtrasadas = calcularCuotasAtrasadas(historial);
         double historialPagos = calcularHistorialPagos(historial);
@@ -246,6 +263,12 @@ public class MorosidadService {
         double probabilidadPago = (1.0 - response.probabilidadDefault()) * 100;
         String nivelRiesgo = calcularNivelRiesgo(probabilidadPago);
         BigDecimal estimatedLoss = calcularPerdidaEstimada(response, account.getLimitBal());
+
+        // Nuevos cálculos: clasificación SBS, percentil y umbral
+        DefaultPolicies policy = policiesRepository.findByIsActiveTrue().orElse(null);
+        String clasificacionSBS = calcularClasificacionSBS(response.probabilidadDefault(), policy);
+        Integer percentilRiesgo = calcularPercentilRiesgo(response.probabilidadDefault());
+        Double umbralPolitica = policy != null ? policy.getThresholdApproval().doubleValue() * 100 : 50.0;
 
         String educacion = mapEducation(customer.getEducation() != null ? customer.getEducation().getIdEducation() : 4);
         String estadoCivil = mapMarriage(customer.getMarriage() != null ? customer.getMarriage().getIdMarriage() : 3);
@@ -263,7 +286,8 @@ public class MorosidadService {
                 account.getRecordId(), account.getLimitBal(), account.getBalance(), account.getEstimatedSalary(),
                 account.getTenure(), antiguedadMeses, cuotasAtrasadas, historialPagos, historial.get(0).getBillAmtX(),
                 ultimoPago, response.isDefault(), probabilidadPago, nivelRiesgo,
-                response.mainRiskFactor(), response.modelVersion(), estimatedLoss);
+                response.mainRiskFactor(), response.riskFactors(), response.modelVersion(), estimatedLoss,
+                clasificacionSBS, percentilRiesgo, umbralPolitica);
     }
 
     private int calcularCuotasAtrasadas(List<MonthlyHistory> historial) {
@@ -291,12 +315,76 @@ public class MorosidadService {
         return "Crítico";
     }
 
-    private BigDecimal calcularPerdidaEstimada(MorosidadResponseDTO response, BigDecimal limitBal) {
-        if (response.isDefault() && limitBal != null) {
-            return limitBal.multiply(BigDecimal.valueOf(response.probabilidadDefault()))
-                    .setScale(2, RoundingMode.HALF_UP);
+    /**
+     * Calcula la clasificación SBS según la matriz de la política activa.
+     * 
+     * @param probabilidadDefault Probabilidad de default (0.0 a 1.0)
+     * @param policy              Política activa (puede ser null)
+     * @return Categoría SBS: Normal, CPP, Deficiente, Dudoso, Pérdida
+     */
+    private String calcularClasificacionSBS(double probabilidadDefault, DefaultPolicies policy) {
+        if (policy == null || policy.getSbsClassificationMatrix() == null) {
+            // Default sin política: usar umbrales estándar
+            if (probabilidadDefault <= 0.05)
+                return "Normal";
+            if (probabilidadDefault <= 0.25)
+                return "CPP";
+            if (probabilidadDefault <= 0.60)
+                return "Deficiente";
+            if (probabilidadDefault <= 0.90)
+                return "Dudoso";
+            return "Pérdida";
         }
-        return BigDecimal.ZERO;
+
+        // Buscar en la matriz de la política
+        for (var rule : policy.getSbsClassificationMatrix()) {
+            if (probabilidadDefault >= rule.getMin() && probabilidadDefault < rule.getMax()) {
+                return rule.getCategoria();
+            }
+        }
+        return "Pérdida"; // Default si no encaja en ningún rango
+    }
+
+    /**
+     * Calcula el percentil de riesgo: qué porcentaje de cuentas tienen MENOR
+     * riesgo.
+     * 
+     * @param probabilidadDefault Probabilidad de default del cliente (0.0 a 1.0)
+     * @return Percentil 0-100 (100 = más riesgoso que el 100% de la cartera)
+     */
+    private Integer calcularPercentilRiesgo(double probabilidadDefault) {
+        // Contar predicciones con menor probabilidad de default
+        long totalPredicciones = defaultPredictionRepository.count();
+        if (totalPredicciones == 0)
+            return 50;
+
+        long menorRiesgo = defaultPredictionRepository.countByDefaultProbabilityLessThan(
+                BigDecimal.valueOf(probabilidadDefault));
+
+        return (int) Math.round((menorRiesgo * 100.0) / totalPredicciones);
+    }
+
+    /**
+     * Calcula la pérdida estimada usando la fórmula de Basilea:
+     * EL = EAD × PD × LGD
+     * Donde EAD = billAmtX (monto adeudado actual)
+     * NOTA: Se calcula para TODAS las cuentas, no solo las que superan umbral.
+     */
+    private BigDecimal calcularPerdidaEstimada(MorosidadResponseDTO response, BigDecimal billAmtX) {
+        if (billAmtX == null || billAmtX.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        // Obtener LGD de la política activa (default 0.45 si no hay política)
+        BigDecimal lgd = policiesRepository.findByIsActiveTrue()
+                .map(DefaultPolicies::getFactorLgd)
+                .orElse(BigDecimal.valueOf(0.45));
+
+        // EL = EAD × PD × LGD
+        return billAmtX
+                .multiply(BigDecimal.valueOf(response.probabilidadDefault()))
+                .multiply(lgd)
+                .setScale(2, RoundingMode.HALF_UP);
     }
 
     private String mapEducation(Integer idEducation) {
@@ -357,9 +445,9 @@ public class MorosidadService {
 
     /**
      * Crea una predicción sin guardarla (para batch inserts).
+     * Usa billAmtX como EAD y obtiene LGD de la política activa.
      */
-    private DefaultPrediction crearPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response,
-            BigDecimal limitBal) {
+    private DefaultPrediction crearPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response) {
         DefaultPrediction prediction = new DefaultPrediction();
         prediction.setMonthlyHistory(ultimoMes);
         prediction.setDatePrediction(LocalDateTime.now());
@@ -367,30 +455,39 @@ public class MorosidadService {
         prediction.setDefaultProbability(BigDecimal.valueOf(response.probabilidadDefault()));
         prediction.setMainRiskFactor(response.mainRiskFactor());
 
-        if (response.isDefault() && limitBal != null) {
-            BigDecimal estimatedLoss = limitBal.multiply(BigDecimal.valueOf(response.probabilidadDefault()));
-            prediction.setEstimatedLoss(estimatedLoss.setScale(2, RoundingMode.HALF_UP));
-        }
+        // Calcular pérdida usando billAmtX como EAD
+        BigDecimal billAmtX = ultimoMes.getBillAmtX();
+        prediction.setEstimatedLoss(calcularPerdidaEstimada(response, billAmtX));
+
+        // Asociar la política activa usada en esta predicción
+        policiesRepository.findByIsActiveTrue()
+                .ifPresent(prediction::setIdPolicy);
+
         return prediction;
     }
 
     /**
      * Guarda una predicción individual (para requests individuales).
      */
-    private void guardarPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response, BigDecimal limitBal) {
-        DefaultPrediction prediction = crearPrediccion(ultimoMes, response, limitBal);
+    private void guardarPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response) {
+        DefaultPrediction prediction = crearPrediccion(ultimoMes, response);
         defaultPredictionRepository.save(prediction);
         log.info("Predicción guardada con ID: {}", prediction.getIdPrediction());
     }
 
     /**
      * Simula una predicción sin guardar en base de datos.
+     * Incluye factores SHAP, pérdida estimada y clasificación SBS.
      */
     public com.naal.bankmind.dto.Default.Response.SimulationResponseDTO simulatePrediction(
             com.naal.bankmind.dto.Default.Request.SimulationRequestDTO request) {
 
         log.info("Simulando predicción de morosidad...");
 
+        // Obtener política activa
+        DefaultPolicies activePolicy = defaultPoliciesRepository.findByIsActiveTrue().orElse(null);
+
+        // Construir request para API Python
         MorosidadRequestDTO apiRequest = new MorosidadRequestDTO(
                 request.limitBal(),
                 request.sex(),
@@ -412,10 +509,29 @@ public class MorosidadService {
             throw new RuntimeException("Error al simular predicción", e);
         }
 
+        // Calcular EL: BILL_AMT1 * PD * LGD
+        double lgd = activePolicy != null ? activePolicy.getFactorLgd().doubleValue() : 0.45;
+        double ead = request.billAmt1(); // EAD = factura actual
+        BigDecimal estimatedLoss = BigDecimal.valueOf(ead * response.probabilidadDefault() * lgd)
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+
+        // Obtener umbral de política
+        Double umbralPolitica = activePolicy != null ? activePolicy.getThresholdApproval().doubleValue() : 0.30;
+
+        // Calcular clasificación SBS
+        String clasificacionSBS = calcularClasificacionSBS(response.probabilidadDefault(), activePolicy);
+
+        log.info("Simulación completada: PD={}%, EL={}, clasificación={}",
+                response.probabilidadDefault() * 100, estimatedLoss, clasificacionSBS);
+
         return new com.naal.bankmind.dto.Default.Response.SimulationResponseDTO(
                 response.isDefault(),
                 response.probabilidadDefault(),
                 response.mainRiskFactor(),
+                response.riskFactors(),
+                estimatedLoss,
+                umbralPolitica,
+                clasificacionSBS,
                 response.modelVersion());
     }
 }

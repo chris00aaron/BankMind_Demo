@@ -31,6 +31,12 @@ public class ChurnPredictions {
     @Column(name = "risk_level", length = 50)
     private String riskLevel;
 
+    @Column(name = "customer_value", precision = 15, scale = 2)
+    private BigDecimal customerValue;
+
+    @Column(name = "prediction_confidence", precision = 5, scale = 4)
+    private BigDecimal predictionConfidence;
+
     @Column(name = "model_version", length = 50)
     private String modelVersion;
 }

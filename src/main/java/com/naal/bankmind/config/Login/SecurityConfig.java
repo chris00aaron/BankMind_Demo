@@ -50,6 +50,7 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/fraud/confirm/**", // Confirmación de transacciones legítimas
                                 "/api/fraud/block/**", // Reporte de fraude y bloqueo
+                                "/api/v1/churn/**", // Rutas de churn (ajustado para coincidir con el controlador)
                                 "/api/morosidad/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/customers/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/dashboard/**", // SOLO PARA PRUEBAS QUITAR LUEGO

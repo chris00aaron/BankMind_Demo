@@ -35,13 +35,13 @@ import lombok.extern.log4j.Log4j2;
     methods = {RequestMethod.GET, RequestMethod.POST}
 )
 @RestController
-@RequestMapping("/dashboard")
-public class DashboardController {
+@RequestMapping("/atm/dashboard")
+public class DashboardATMController {
 
     private final DailyWithdrawalPredictionService dailyWithdrawalPredictionService;
     private final AtmFeaturesService atmFeaturesService;
     private final AtmService atmService;
-    private final ModelConfidenceService modelConfidenceService;
+    //private final ModelConfidenceService modelConfidenceService;
 
     @GetMapping
     public ResponseEntity<?> obtenerRetirosPorFecha() {
@@ -54,8 +54,8 @@ public class DashboardController {
         var retirosHistoricos = atmFeaturesService.predecirBasadoEnHistoricoComparadoConPrediccion((short) fecha.getDayOfMonth(), (short) fecha.getMonthValue(), predicciones);
         var atmsConPotencialDeFaltaStock = atmService.contabilizarAtmsConPotencialDeFaltaStock(fecha, predicciones);
         var segmentacionRetiro = SegmentacionRetiroDTO.from(predictionBrutas);
-        var fectures = modelConfidenceService.mostrarImportanciaFeatures();
-        return ResponseEntity.ok(new dtoDashboard(resumen,resumenOperativo,atmsConPotencialDeFaltaStock,predicciones,retirosHistoricos, fectures, segmentacionRetiro));
+        //var fectures = modelConfidenceService.mostrarImportanciaFeatures();
+        return ResponseEntity.ok(new dtoDashboard(resumen,resumenOperativo,atmsConPotencialDeFaltaStock,predicciones,retirosHistoricos, null, segmentacionRetiro));
     }
     
     public record dtoDashboard(

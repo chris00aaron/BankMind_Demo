@@ -3,22 +3,22 @@ package com.naal.bankmind.utils.atm;
 import java.math.BigDecimal;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.naal.bankmind.service.atm.WithdrawalModelService;
 
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 
-@RequiredArgsConstructor
 @Service
 public class ModelConfidenceService {
 
-    private final WithdrawalModelService withdrawalModelService;
+    @Autowired
+    private WithdrawalModelService withdrawalModelService;
 
     private volatile ConfidenceModel confidenceModel;
 
-    @PostConstruct
+    //@PostConstruct
     public void loadModel() {
         inicializar();
     }

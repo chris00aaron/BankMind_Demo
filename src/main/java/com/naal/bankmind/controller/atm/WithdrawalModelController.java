@@ -22,7 +22,7 @@ import lombok.AllArgsConstructor;
     methods = {RequestMethod.GET, RequestMethod.POST}
 )
 @RestController
-@RequestMapping("/model")
+@RequestMapping("/atm/model")
 public class WithdrawalModelController {
 
     private final WithdrawalModelService withdrawalModelService;

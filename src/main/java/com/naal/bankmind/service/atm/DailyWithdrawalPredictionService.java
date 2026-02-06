@@ -34,7 +34,7 @@ public class DailyWithdrawalPredictionService {
     
     //Servicio 
     private final DailyAtmTransactionService dailyAtmTransactionService;
-    private final ModelConfidenceService modelConfidenceService;
+    //private final ModelConfidenceService modelConfidenceService;
     private final WithdrawalModelService withdrawalModelService;
 
     //Repositorio
@@ -50,7 +50,7 @@ public class DailyWithdrawalPredictionService {
      *         para la fecha especificada
      */
     public List<DailyWithdrawalPrediction> obtenerPrediccionesPorFecha(LocalDate fecha) {
-        List<DailyWithdrawalPrediction> predicciones = dailyWithdrawalPredictionRepository.findByPredictionDate(fecha);
+        /*List<DailyWithdrawalPrediction> predicciones = dailyWithdrawalPredictionRepository.findByPredictionDate(fecha);
 
         if(!predicciones.isEmpty()) {
             log.info("Se encontraron predicciones para la fecha: {}", fecha);
@@ -100,7 +100,7 @@ public class DailyWithdrawalPredictionService {
 
         dailyWithdrawalPredictionRepository.saveAll(prediccionesGuardadas);
         log.info("Se guardaron {} predicciones para la fecha: {}", prediccionesGuardadas.size(), fecha);
-
-        return prediccionesGuardadas;
+*/
+        return null;
     }
 }

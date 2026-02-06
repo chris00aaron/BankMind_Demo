@@ -29,7 +29,7 @@ import lombok.extern.log4j.Log4j2;
     methods = {RequestMethod.GET, RequestMethod.POST}
 )
 @RestController
-@RequestMapping("/prediccion")
+@RequestMapping("/atm/prediccion")
 public class DailyWithdrawalPredictionController {
 
     private final DailyWithdrawalPredictionService dailyWithdrawalPredictionService;

@@ -86,7 +86,7 @@ public class ChurnService {
         System.out.println("Service: Fetching all customers from DB...");
         List<Customer> customers = customerRepository.findAll();
         System.out.println("Service: Raw customers found: " + customers.size());
-
+        
         List<CustomerDashboardDTO> result = new ArrayList<>();
 
         for (Customer customer : customers) {
@@ -177,14 +177,13 @@ public class ChurnService {
         // Set new fields
         BigDecimal balance = accountDetails.getBalance() != null ? accountDetails.getBalance() : BigDecimal.ZERO;
         prediction.setCustomerValue(balance);
-
+        
         // Default confidence to 0.95 if not provided by API
-        Double confidence = responseDTO.getPredictionConfidence() != null ? responseDTO.getPredictionConfidence()
-                : 0.95;
+        Double confidence = responseDTO.getPredictionConfidence() != null ? responseDTO.getPredictionConfidence() : 0.95;
         prediction.setPredictionConfidence(BigDecimal.valueOf(confidence));
 
         churnPredictionsRepository.save(prediction);
-
+        
         // Return the DTO because it contains the Risk Factors (XAI)
         return responseDTO;
     }
@@ -222,8 +221,7 @@ public class ChurnService {
                 .orElseThrow(() -> new RuntimeException("Customer data not found"));
 
         // 2. Fetch latest risk prediction
-        List<ChurnPredictions> history = churnPredictionsRepository
-                .findByCustomer_IdCustomerOrderByPredictionDateDesc(idCustomer);
+        List<ChurnPredictions> history = churnPredictionsRepository.findByCustomer_IdCustomerOrderByPredictionDateDesc(idCustomer);
         double riskProb = history.isEmpty() ? 0.5 : history.get(0).getChurnProbability().doubleValue();
 
         // 3. Rule Engine
@@ -264,11 +262,11 @@ public class ChurnService {
         CampaignTargetKey key = new CampaignTargetKey();
         key.setIdCampaign(campaign.getIdCampaign());
         key.setIdCustomer(idCustomer);
-
+        
         target.setId(key);
         target.setStatus("CONTACTED_" + actionType);
         target.setContactDate(LocalDateTime.now());
-
+        
         campaignTargetRepository.save(target);
         System.out.println("Interaction logged for customer " + idCustomer + ": " + actionType);
     }
@@ -323,14 +321,13 @@ public class ChurnService {
             HttpEntity<ChurnRequestDTO> entity = new HttpEntity<>(requestDTO, headers);
 
             ChurnResponseDTO response = restTemplate.postForObject(url, entity, ChurnResponseDTO.class);
-
+            
             // DEBUG LOGS
             if (response != null) {
                 System.out.println("--> Python Response: Prob=" + response.getChurnProbability());
-                System.out.println("--> Python Risk Factors: "
-                        + (response.getRiskFactors() != null ? response.getRiskFactors().size() : "NULL"));
+                System.out.println("--> Python Risk Factors: " + (response.getRiskFactors() != null ? response.getRiskFactors().size() : "NULL"));
             }
-
+            
             return response;
         } catch (Exception e) {
             // If API fails, return default response for development

@@ -26,7 +26,7 @@ import lombok.AllArgsConstructor;
     methods = {RequestMethod.GET, RequestMethod.POST}
 )
 @RestController
-@RequestMapping("/self-training")
+@RequestMapping("/atm/self-training")
 public class SelfTrainingAuditWithdrawalModelController {
 
     private final SelfTrainingAuditWithdrawalModelService selfTrainingAuditWithdrawalModelService;

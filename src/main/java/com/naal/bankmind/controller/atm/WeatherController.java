@@ -24,7 +24,7 @@ import lombok.AllArgsConstructor;
     methods = {RequestMethod.GET, RequestMethod.POST}
 )
 @RestController
-@RequestMapping("/weather")
+@RequestMapping("/atm/weather")
 public class WeatherController {
 
     private final WeatherService weatherService;

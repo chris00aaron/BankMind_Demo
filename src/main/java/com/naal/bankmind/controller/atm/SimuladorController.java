@@ -25,7 +25,7 @@ import lombok.extern.log4j.Log4j2;
     methods = {RequestMethod.POST}
 )
 @RestController
-@RequestMapping("/simulador")
+@RequestMapping("/atm/simulador")
 public class SimuladorController {
 
     private final AtmFeaturesService atmFeaturesService;

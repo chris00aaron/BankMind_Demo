@@ -3,6 +3,7 @@ package com.naal.bankmind.service.Churn;
 import com.naal.bankmind.dto.Churn.ChurnRequestDTO;
 import com.naal.bankmind.dto.Churn.ChurnResponseDTO;
 import com.naal.bankmind.dto.Churn.CustomerDashboardDTO;
+import com.naal.bankmind.dto.Churn.SegmentDTO;
 import com.naal.bankmind.entity.AccountDetails;
 import com.naal.bankmind.entity.ChurnPredictions;
 import com.naal.bankmind.entity.Customer;
@@ -10,15 +11,19 @@ import com.naal.bankmind.repository.Default.AccountDetailsRepository;
 import com.naal.bankmind.repository.Default.CustomerRepository;
 import com.naal.bankmind.repository.Churn.ChurnPredictionsRepository;
 import com.naal.bankmind.repository.Churn.RetentionStrategyDefRepository;
+import com.naal.bankmind.repository.Churn.RetentionSegmentDefRepository;
 import com.naal.bankmind.repository.Churn.CampaignLogRepository;
 import com.naal.bankmind.repository.Churn.CampaignTargetRepository;
 import com.naal.bankmind.entity.RetentionStrategyDef;
+import com.naal.bankmind.entity.RetentionSegmentDef;
 import com.naal.bankmind.entity.CampaignLog;
 import com.naal.bankmind.entity.CampaignTarget;
 import com.naal.bankmind.entity.CampaignTargetKey;
 import com.naal.bankmind.entity.Customer;
 import com.naal.bankmind.entity.AccountDetails;
 import com.naal.bankmind.entity.ChurnPredictions;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -53,9 +58,11 @@ public class ChurnService {
     private final AccountDetailsRepository accountDetailsRepository;
     private final ChurnPredictionsRepository churnPredictionsRepository;
     private final RetentionStrategyDefRepository retentionStrategyDefRepository;
+    private final RetentionSegmentDefRepository retentionSegmentDefRepository;
     private final CampaignLogRepository campaignLogRepository;
     private final CampaignTargetRepository campaignTargetRepository;
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${churn.api.base-url:http://localhost:8001}")
     private String churnApiBaseUrl;
@@ -65,12 +72,14 @@ public class ChurnService {
             AccountDetailsRepository accountDetailsRepository,
             ChurnPredictionsRepository churnPredictionsRepository,
             RetentionStrategyDefRepository retentionStrategyDefRepository,
+            RetentionSegmentDefRepository retentionSegmentDefRepository,
             CampaignLogRepository campaignLogRepository,
             CampaignTargetRepository campaignTargetRepository) {
         this.customerRepository = customerRepository;
         this.accountDetailsRepository = accountDetailsRepository;
         this.churnPredictionsRepository = churnPredictionsRepository;
         this.retentionStrategyDefRepository = retentionStrategyDefRepository;
+        this.retentionSegmentDefRepository = retentionSegmentDefRepository;
         this.campaignLogRepository = campaignLogRepository;
         this.campaignTargetRepository = campaignTargetRepository;
         this.restTemplate = new RestTemplate();
@@ -79,14 +88,18 @@ public class ChurnService {
     /**
      * Gets all customers for the dashboard display.
      * Includes their latest risk score from predictions.
+     * LIMITED to first 100 customers to avoid N+1 performance issues.
      * 
      * @return List of CustomerDashboardDTO
      */
     public List<CustomerDashboardDTO> getAllCustomersForDashboard() {
-        System.out.println("Service: Fetching all customers from DB...");
-        List<Customer> customers = customerRepository.findAll();
+        System.out.println("Service: Fetching customers from DB (limited to 100)...");
+
+        // Use pagination to limit results and avoid N+1 query timeout
+        org.springframework.data.domain.Pageable limit = org.springframework.data.domain.PageRequest.of(0, 100);
+        List<Customer> customers = customerRepository.findAll(limit).getContent();
         System.out.println("Service: Raw customers found: " + customers.size());
-        
+
         List<CustomerDashboardDTO> result = new ArrayList<>();
 
         for (Customer customer : customers) {
@@ -123,6 +136,19 @@ public class ChurnService {
                     country = customer.getCountry().getCountryDescription();
                 }
 
+                // Calculate tenure and since from registration date (REAL DATA)
+                Integer tenure = 0;
+                String since = "N/A";
+                if (customer.getIdRegistrationDate() != null) {
+                    java.time.LocalDateTime regDate = customer.getIdRegistrationDate();
+                    tenure = (int) java.time.temporal.ChronoUnit.YEARS.between(regDate, java.time.LocalDateTime.now());
+                    since = String.valueOf(regDate.getYear());
+                }
+
+                // Products count: 1 if has account, else 0 (simplified - could query
+                // credit_cards table)
+                Integer products = accountOpt.isPresent() ? 1 : 0;
+
                 result.add(CustomerDashboardDTO.builder()
                         .id(customer.getIdCustomer())
                         .score(creditScore)
@@ -132,6 +158,9 @@ public class ChurnService {
                         .name((customer.getFirstName() != null ? customer.getFirstName() : "") + " "
                                 + (customer.getSurname() != null ? customer.getSurname() : ""))
                         .risk(riskScore)
+                        .tenure(tenure)
+                        .since(since)
+                        .products(products)
                         .build());
             } catch (Exception e) {
                 System.err.println("Error processing customer ID " + customer.getIdCustomer() + ": " + e.getMessage());
@@ -177,13 +206,14 @@ public class ChurnService {
         // Set new fields
         BigDecimal balance = accountDetails.getBalance() != null ? accountDetails.getBalance() : BigDecimal.ZERO;
         prediction.setCustomerValue(balance);
-        
+
         // Default confidence to 0.95 if not provided by API
-        Double confidence = responseDTO.getPredictionConfidence() != null ? responseDTO.getPredictionConfidence() : 0.95;
+        Double confidence = responseDTO.getPredictionConfidence() != null ? responseDTO.getPredictionConfidence()
+                : 0.95;
         prediction.setPredictionConfidence(BigDecimal.valueOf(confidence));
 
         churnPredictionsRepository.save(prediction);
-        
+
         // Return the DTO because it contains the Risk Factors (XAI)
         return responseDTO;
     }
@@ -221,7 +251,8 @@ public class ChurnService {
                 .orElseThrow(() -> new RuntimeException("Customer data not found"));
 
         // 2. Fetch latest risk prediction
-        List<ChurnPredictions> history = churnPredictionsRepository.findByCustomer_IdCustomerOrderByPredictionDateDesc(idCustomer);
+        List<ChurnPredictions> history = churnPredictionsRepository
+                .findByCustomer_IdCustomerOrderByPredictionDateDesc(idCustomer);
         double riskProb = history.isEmpty() ? 0.5 : history.get(0).getChurnProbability().doubleValue();
 
         // 3. Rule Engine
@@ -262,11 +293,11 @@ public class ChurnService {
         CampaignTargetKey key = new CampaignTargetKey();
         key.setIdCampaign(campaign.getIdCampaign());
         key.setIdCustomer(idCustomer);
-        
+
         target.setId(key);
         target.setStatus("CONTACTED_" + actionType);
         target.setContactDate(LocalDateTime.now());
-        
+
         campaignTargetRepository.save(target);
         System.out.println("Interaction logged for customer " + idCustomer + ": " + actionType);
     }
@@ -321,13 +352,14 @@ public class ChurnService {
             HttpEntity<ChurnRequestDTO> entity = new HttpEntity<>(requestDTO, headers);
 
             ChurnResponseDTO response = restTemplate.postForObject(url, entity, ChurnResponseDTO.class);
-            
+
             // DEBUG LOGS
             if (response != null) {
                 System.out.println("--> Python Response: Prob=" + response.getChurnProbability());
-                System.out.println("--> Python Risk Factors: " + (response.getRiskFactors() != null ? response.getRiskFactors().size() : "NULL"));
+                System.out.println("--> Python Risk Factors: "
+                        + (response.getRiskFactors() != null ? response.getRiskFactors().size() : "NULL"));
             }
-            
+
             return response;
         } catch (Exception e) {
             // If API fails, return default response for development
@@ -342,9 +374,12 @@ public class ChurnService {
 
     /**
      * Calculates geography statistics based on real customer data.
+     * LIMITED to first 500 customers to avoid N+1 performance issues.
      */
     public List<com.naal.bankmind.dto.Churn.GeographyStatsDTO> getGeographyStats() {
-        List<Customer> customers = customerRepository.findAll();
+        // Use pagination to limit results and avoid N+1 query timeout
+        org.springframework.data.domain.Pageable limit = org.springframework.data.domain.PageRequest.of(0, 500);
+        List<Customer> customers = customerRepository.findAll(limit).getContent();
 
         // Group by Country Name
         java.util.Map<String, List<Customer>> customersByCountry = customers.stream()
@@ -460,5 +495,51 @@ public class ChurnService {
                 .f1Score(89.8)
                 .aucRoc(94.2)
                 .build();
+    }
+
+    /**
+     * Gets all segment definitions from the database.
+     * Converts the JSON rules to DTO format expected by frontend.
+     */
+    public List<SegmentDTO> getAllSegments() {
+        List<RetentionSegmentDef> segments = retentionSegmentDefRepository.findAll();
+        List<SegmentDTO> result = new ArrayList<>();
+
+        for (RetentionSegmentDef seg : segments) {
+            try {
+                List<SegmentDTO.RuleDTO> rules = new ArrayList<>();
+                if (seg.getRulesJson() != null && !seg.getRulesJson().isEmpty()) {
+                    List<java.util.Map<String, Object>> rawRules = objectMapper.readValue(
+                            seg.getRulesJson(),
+                            new TypeReference<List<java.util.Map<String, Object>>>() {
+                            });
+                    for (java.util.Map<String, Object> r : rawRules) {
+                        rules.add(SegmentDTO.RuleDTO.builder()
+                                .field((String) r.get("field"))
+                                .op((String) r.get("op"))
+                                .val(r.get("val"))
+                                .build());
+                    }
+                }
+
+                result.add(SegmentDTO.builder()
+                        .id(seg.getIdSegment())
+                        .name(seg.getName())
+                        .description(seg.getDescription())
+                        .rules(rules)
+                        .build());
+            } catch (Exception e) {
+                System.err.println("Error parsing segment rules for ID " + seg.getIdSegment() + ": " + e.getMessage());
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Gets all active retention strategies from the database.
+     */
+    public List<RetentionStrategyDef> getAllStrategies() {
+        return retentionStrategyDefRepository.findByIsActiveTrue();
     }
 }

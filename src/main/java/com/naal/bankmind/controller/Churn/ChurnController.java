@@ -129,4 +129,24 @@ public class ChurnController {
         com.naal.bankmind.dto.Churn.MLOpsMetricsDTO metrics = churnService.getMLOpsMetrics();
         return ResponseEntity.ok(metrics);
     }
+
+    /**
+     * GET /api/v1/churn/config/segments
+     * Returns all segment definitions for the rule engine.
+     */
+    @GetMapping("/config/segments")
+    public ResponseEntity<List<com.naal.bankmind.dto.Churn.SegmentDTO>> getSegments() {
+        List<com.naal.bankmind.dto.Churn.SegmentDTO> segments = churnService.getAllSegments();
+        return ResponseEntity.ok(segments);
+    }
+
+    /**
+     * GET /api/v1/churn/config/strategies
+     * Returns all active retention strategies.
+     */
+    @GetMapping("/config/strategies")
+    public ResponseEntity<List<RetentionStrategyDef>> getStrategies() {
+        List<RetentionStrategyDef> strategies = churnService.getAllStrategies();
+        return ResponseEntity.ok(strategies);
+    }
 }

@@ -23,4 +23,9 @@ public class CustomerDashboardDTO {
     private String country;
     private String name;
     private Integer risk;
+
+    // New fields for real data (replacing frontend mocks)
+    private Integer tenure; // Years as customer (calculated from id_registration_date)
+    private String since; // Year customer registered
+    private Integer products; // Number of credit cards/products
 }

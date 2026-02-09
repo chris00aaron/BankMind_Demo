@@ -35,7 +35,7 @@ public class AtmFeaturesService {
     //Servicio 
     private final WeatherService weatherService;
     private final DailyAtmTransactionService dailyAtmTransactionService;
-    //private final ModelConfidenceService modelConfidenceService;
+    private final ModelConfidenceService modelConfidenceService;
 
     //Repositorio
     private final AtmFeaturesRepository atmFeaturesRepository;
@@ -79,7 +79,7 @@ public class AtmFeaturesService {
 
         List<OutputDataRetiroAtm> outputList = withdrawalFeignClient.predecirWithdrawalHistoric(inputList);
 
-        /*List<RetiroEfectivoAtmPrediccionDTO> outputListWithCI = outputList.stream()
+        List<RetiroEfectivoAtmPrediccionDTO> outputListWithCI = outputList.stream()
                 .map(out -> {
                     ConfidenceInterval ci = modelConfidenceService.calcularIntervaloConfianza(out.retiro());
                     RetiroEfectivoAtmPrediccionDTO prediccion = new RetiroEfectivoAtmPrediccionDTO(out.atm(),
@@ -116,9 +116,9 @@ public class AtmFeaturesService {
                             withdrawalAvg.getAvgWithdrawal().setScale(2, RoundingMode.HALF_UP), 
                             retirosPrevistoPorAtm.get(withdrawalAvg.getIdAtm()).setScale(2, RoundingMode.HALF_UP));
                 })
-                .collect(Collectors.toList());*/
+                .collect(Collectors.toList());
 
-        return new PrediccionDeRetirosDTO(null, null, null);
+        return new PrediccionDeRetirosDTO(outputListWithCI, retiroHistoricoDTOs, resumen);
     }
 
     public List<WithdrawalAvgProjectionDTO> predecirBasadoEnHistorico(Short diaDelMes, Short mes) {

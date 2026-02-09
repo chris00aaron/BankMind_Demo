@@ -18,12 +18,10 @@ public class ModelConfidenceService {
 
     private volatile ConfidenceModel confidenceModel;
 
-    /*
-     * @PostConstruct
-     * public void loadModel() {
-     * inicializar();
-     * }
-     */
+    @PostConstruct
+    public void loadModel() {
+        inicializar();
+    }
 
     public synchronized void inicializar() {
         ConfidenceModel model = withdrawalModelService

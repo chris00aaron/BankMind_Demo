@@ -57,8 +57,9 @@ public class SecurityConfig {
                                 "/api/policies/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/warnings/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/model/**", // SOLO PARA PRUEBAS QUITAR LUEGO
+                                "/api/default/**", // SOLO PARA PRUEBAS QUITAR LUEGO (DATA SINTETICA MOROSIDAD)
                                 "/error",
-                                //Path de ATM
+                                // Path de ATM
                                 "atm/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/actuator/health",
                                 // Recursos estáticos (imágenes, CSS, JS, etc.)

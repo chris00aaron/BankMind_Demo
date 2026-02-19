@@ -58,6 +58,7 @@ public class SecurityConfig {
                                 "/api/warnings/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/model/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/default/**", // SOLO PARA PRUEBAS QUITAR LUEGO (DATA SINTETICA MOROSIDAD)
+                                "/api/portfolio/**", // NUEVO ENDPOINT DE CARTERA
                                 "/error",
                                 // Path de ATM
                                 "atm/**", // SOLO PARA PRUEBAS QUITAR LUEGO

@@ -57,6 +57,7 @@ public class SecurityConfig {
                                 "/api/policies/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/warnings/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/model/**", // SOLO PARA PRUEBAS QUITAR LUEGO
+                                "/api/fraud/test/**", // Controladores de prueba
                                 "/error",
                                 "/actuator/health",
                                 // Recursos estáticos (imágenes, CSS, JS, etc.)

@@ -30,4 +30,11 @@ public interface AccountDetailsRepository extends JpaRepository<AccountDetails, 
             "LEFT JOIN FETCH c.education LEFT JOIN FETCH c.marriage LEFT JOIN FETCH c.gender " +
             "WHERE ad.recordId IN :recordIds")
     List<AccountDetails> findAllWithCustomerByRecordIds(@Param("recordIds") List<Long> recordIds);
+
+    /**
+     * Obtiene la primera cuenta de cada cliente en una lista de IDs.
+     * Batch query para evitar N+1 en el dashboard.
+     */
+    @Query("SELECT ad FROM AccountDetails ad WHERE ad.customer.idCustomer IN :customerIds")
+    List<AccountDetails> findByCustomerIds(@Param("customerIds") List<Long> customerIds);
 }

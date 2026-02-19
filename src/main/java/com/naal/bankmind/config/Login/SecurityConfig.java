@@ -58,7 +58,11 @@ public class SecurityConfig {
                                 "/api/warnings/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/model/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/api/fraud/test/**", // Controladores de prueba
+                                "/api/default/**", // SOLO PARA PRUEBAS QUITAR LUEGO (DATA SINTETICA MOROSIDAD)
+                                "/api/portfolio/**", // NUEVO ENDPOINT DE CARTERA
                                 "/error",
+                                // Path de ATM
+                                "atm/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/actuator/health",
                                 // Recursos estáticos (imágenes, CSS, JS, etc.)
                                 "/images/**",
@@ -96,8 +100,7 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }

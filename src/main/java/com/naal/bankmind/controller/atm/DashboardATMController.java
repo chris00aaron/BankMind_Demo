@@ -41,7 +41,7 @@ public class DashboardATMController {
     private final DailyWithdrawalPredictionService dailyWithdrawalPredictionService;
     private final AtmFeaturesService atmFeaturesService;
     private final AtmService atmService;
-    //private final ModelConfidenceService modelConfidenceService;
+    private final ModelConfidenceService modelConfidenceService;
 
     @GetMapping
     public ResponseEntity<?> obtenerRetirosPorFecha() {
@@ -54,8 +54,8 @@ public class DashboardATMController {
         var retirosHistoricos = atmFeaturesService.predecirBasadoEnHistoricoComparadoConPrediccion((short) fecha.getDayOfMonth(), (short) fecha.getMonthValue(), predicciones);
         var atmsConPotencialDeFaltaStock = atmService.contabilizarAtmsConPotencialDeFaltaStock(fecha, predicciones);
         var segmentacionRetiro = SegmentacionRetiroDTO.from(predictionBrutas);
-        //var fectures = modelConfidenceService.mostrarImportanciaFeatures();
-        return ResponseEntity.ok(new dtoDashboard(resumen,resumenOperativo,atmsConPotencialDeFaltaStock,predicciones,retirosHistoricos, null, segmentacionRetiro));
+        var featuresImportancia = modelConfidenceService.mostrarImportanciaFeatures();
+        return ResponseEntity.ok(new dtoDashboard(resumen,resumenOperativo,atmsConPotencialDeFaltaStock,predicciones,retirosHistoricos, featuresImportancia, segmentacionRetiro));
     }
     
     public record dtoDashboard(

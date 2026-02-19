@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
-public class DashboardController {
+public class DashboardDefaultController {
 
     private final DashboardService dashboardService;
 

@@ -160,6 +160,12 @@ public class MorosidadService {
             throw new RuntimeException("Error al comunicarse con el servicio de predicción batch", e);
         }
 
+        DefaultPolicies activePolicy = policiesRepository.findByIsActiveTrue().orElse(null);
+        BigDecimal lgd = activePolicy != null ? activePolicy.getFactorLgd() : BigDecimal.valueOf(0.45);
+        Double umbralPolitica = activePolicy != null
+                ? activePolicy.getThresholdApproval().doubleValue() * 100
+                : 50.0;
+
         List<BatchAccountPredictionDTO> results = new ArrayList<>();
         List<DefaultPrediction> predictionsToSave = new ArrayList<>(); // Acumular para batch insert
 
@@ -179,8 +185,8 @@ public class MorosidadService {
                     null, // riskFactors - batch no calcula SHAP individual
                     batchResponse.getModelVersion());
 
-            // Crear predicción sin guardar aún
-            DefaultPrediction pred = crearPrediccion(historial.get(0), singleResponse);
+            // Crear predicción usando política pre-cargada
+            DefaultPrediction pred = crearPrediccionBatch(historial.get(0), singleResponse, activePolicy, lgd);
             predictionsToSave.add(pred);
 
             double probabilidadPago = (1.0 - item.getProbabilidadDefault()) * 100;
@@ -195,8 +201,9 @@ public class MorosidadService {
                     ? mapMarriage(customer.getMarriage().getIdMarriage())
                     : "Otro";
 
-            // Calcular pérdida estimada con fórmula EL = EAD × PD × LGD
-            BigDecimal estimatedLoss = calcularPerdidaEstimada(singleResponse, historial.get(0).getBillAmtX());
+            // Calcular pérdida estimada con política pre-cargada
+            BigDecimal estimatedLoss = calcularPerdidaEstimadaConLgd(singleResponse, historial.get(0).getBillAmtX(),
+                    lgd);
 
             results.add(new BatchAccountPredictionDTO(
                     customer.getIdCustomer(),
@@ -220,11 +227,6 @@ public class MorosidadService {
         }
 
         log.info("Predicción batch completada: {} resultados", results.size());
-
-        // Obtener umbral de política activa
-        Double umbralPolitica = defaultPoliciesRepository.findByIsActiveTrue()
-                .map(p -> p.getThresholdApproval().doubleValue() * 100)
-                .orElse(50.0);
 
         return new BatchPredictionWrapperDTO(results, umbralPolitica, batchResponse.getShapSummary());
     }
@@ -368,17 +370,24 @@ public class MorosidadService {
      * Calcula la pérdida estimada usando la fórmula de Basilea:
      * EL = EAD × PD × LGD
      * Donde EAD = billAmtX (monto adeudado actual)
-     * NOTA: Se calcula para TODAS las cuentas, no solo las que superan umbral.
+     * Busca la política activa (para requests individuales).
      */
     private BigDecimal calcularPerdidaEstimada(MorosidadResponseDTO response, BigDecimal billAmtX) {
-        if (billAmtX == null || billAmtX.compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.ZERO;
-        }
-
-        // Obtener LGD de la política activa (default 0.45 si no hay política)
         BigDecimal lgd = policiesRepository.findByIsActiveTrue()
                 .map(DefaultPolicies::getFactorLgd)
                 .orElse(BigDecimal.valueOf(0.45));
+        return calcularPerdidaEstimadaConLgd(response, billAmtX, lgd);
+    }
+
+    /**
+     * Calcula EL con LGD pre-cargado (para batch).
+     * OPTIMIZADO: evita query repetida a default_policies.
+     */
+    private BigDecimal calcularPerdidaEstimadaConLgd(MorosidadResponseDTO response, BigDecimal billAmtX,
+            BigDecimal lgd) {
+        if (billAmtX == null || billAmtX.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
 
         // EL = EAD × PD × LGD
         return billAmtX
@@ -444,10 +453,21 @@ public class MorosidadService {
     }
 
     /**
-     * Crea una predicción sin guardarla (para batch inserts).
-     * Usa billAmtX como EAD y obtiene LGD de la política activa.
+     * Crea una predicción sin guardarla (para requests individuales).
+     * Busca la política activa una vez.
      */
     private DefaultPrediction crearPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response) {
+        DefaultPolicies policy = policiesRepository.findByIsActiveTrue().orElse(null);
+        BigDecimal lgd = policy != null ? policy.getFactorLgd() : BigDecimal.valueOf(0.45);
+        return crearPrediccionBatch(ultimoMes, response, policy, lgd);
+    }
+
+    /**
+     * Crea una predicción sin guardarla, usando política pre-cargada.
+     * OPTIMIZADO para batch: evita N queries a default_policies.
+     */
+    private DefaultPrediction crearPrediccionBatch(MonthlyHistory ultimoMes, MorosidadResponseDTO response,
+            DefaultPolicies policy, BigDecimal lgd) {
         DefaultPrediction prediction = new DefaultPrediction();
         prediction.setMonthlyHistory(ultimoMes);
         prediction.setDatePrediction(LocalDateTime.now());
@@ -455,13 +475,14 @@ public class MorosidadService {
         prediction.setDefaultProbability(BigDecimal.valueOf(response.probabilidadDefault()));
         prediction.setMainRiskFactor(response.mainRiskFactor());
 
-        // Calcular pérdida usando billAmtX como EAD
+        // Calcular pérdida usando billAmtX como EAD con LGD pre-cargado
         BigDecimal billAmtX = ultimoMes.getBillAmtX();
-        prediction.setEstimatedLoss(calcularPerdidaEstimada(response, billAmtX));
+        prediction.setEstimatedLoss(calcularPerdidaEstimadaConLgd(response, billAmtX, lgd));
 
-        // Asociar la política activa usada en esta predicción
-        policiesRepository.findByIsActiveTrue()
-                .ifPresent(prediction::setIdPolicy);
+        // Asociar la política pre-cargada
+        if (policy != null) {
+            prediction.setIdPolicy(policy);
+        }
 
         return prediction;
     }

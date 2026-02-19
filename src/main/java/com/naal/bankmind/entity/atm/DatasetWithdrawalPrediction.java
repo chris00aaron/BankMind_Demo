@@ -1,6 +1,12 @@
 package com.naal.bankmind.entity.atm;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Map;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.Column;
@@ -49,6 +55,15 @@ public class DatasetWithdrawalPrediction {
     // fecha final
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, Object> features;
+
+    @Column(length = 100)
+    private String target;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
     @JsonManagedReference("audit-dataset")
     @OneToOne(mappedBy = "dataset", fetch = FetchType.LAZY, optional = false)

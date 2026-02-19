@@ -1,6 +1,8 @@
 package com.naal.bankmind.repository.Default;
 
 import com.naal.bankmind.entity.Customer;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -21,6 +23,15 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
                         "LOWER(c.surname) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
                         "CAST(c.idCustomer AS string) LIKE CONCAT('%', :searchTerm, '%')")
         List<Customer> searchByNameOrId(@Param("searchTerm") String searchTerm);
+
+        /**
+         * Versión paginada de searchByNameOrId para el dashboard.
+         */
+        @Query("SELECT c FROM Customer c WHERE " +
+                        "LOWER(c.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+                        "LOWER(c.surname) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+                        "CAST(c.idCustomer AS string) LIKE CONCAT('%', :search, '%')")
+        Page<Customer> searchByNameOrIdPageable(@Param("search") String search, Pageable pageable);
 
         /**
          * Busca clientes con filtros dinámicos para predicción por lotes.

@@ -80,6 +80,9 @@ public class SelfTrainingAuditFraud {
     @Column(name = "triggered_by")
     private String triggeredBy;
 
+    @Column(name = "trigger_details", columnDefinition = "jsonb")
+    private String triggerDetails;
+
     @Column(name = "is_success")
     private Boolean isSuccess;
 

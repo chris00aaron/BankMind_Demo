@@ -24,7 +24,9 @@ import com.naal.bankmind.utils.atm.ConfidenceInterval;
 import com.naal.bankmind.utils.atm.ModelConfidenceService;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 
+@Log4j2
 @AllArgsConstructor
 @Service
 public class AtmFeaturesService {
@@ -126,7 +128,13 @@ public class AtmFeaturesService {
     }
 
     public List<RetiroHistoricoDTO> predecirBasadoEnHistoricoComparadoConPrediccion(Short diaDelMes, Short mes, List<RetiroEfectivoAtmPrediccionDTO> prediccionDeRetirosDTO) {
+        log.info("Dia del mes: {}", diaDelMes);
+        log.info("Mes: {}", mes);
+        log.info("Prediccion de retiros: {}", prediccionDeRetirosDTO);
+        
         List<WithdrawalAvgProjectionDTO> datosHistoricos = this.predecirBasadoEnHistorico(diaDelMes, mes);
+        log.info("Datos historicos: {}", datosHistoricos);
+        
         Map<Long, BigDecimal> retirosPrevistoPorAtm = prediccionDeRetirosDTO.stream()
                 .collect(Collectors.toMap(RetiroEfectivoAtmPrediccionDTO::idAtm, RetiroEfectivoAtmPrediccionDTO::retiroPrevisto));
     
@@ -140,5 +148,4 @@ public class AtmFeaturesService {
                 )
                 .collect(Collectors.toList());
     }
-
 }

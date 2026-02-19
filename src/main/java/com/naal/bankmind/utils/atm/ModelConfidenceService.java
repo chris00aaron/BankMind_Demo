@@ -18,7 +18,7 @@ public class ModelConfidenceService {
 
     private volatile ConfidenceModel confidenceModel;
 
-    @PostConstruct
+    //@PostConstruct
     public void loadModel() {
         inicializar();
     }

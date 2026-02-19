@@ -6,10 +6,30 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
 public interface MonthlyHistoryRepository extends JpaRepository<MonthlyHistory, Long> {
+
+    // -----------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------
+    // GENERACIÓN DE DATA SINTETICA
+
+    /**
+     * Verifica si ya existe un registro para una cuenta en un período específico.
+     * Útil para evitar duplicados al generar data sintética.
+     */
+    boolean existsByAccountDetails_RecordIdAndMonthlyPeriod(Long recordId, LocalDate monthlyPeriod);
+
+    /**
+     * Cuenta registros posteriores a una fecha dada.
+     * Útil para verificar cuántos registros sintéticos se generaron.
+     */
+    long countByMonthlyPeriodAfter(LocalDate date);
+
+    // -----------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------
 
     /**
      * Obtiene los últimos 6 meses de historial para una cuenta.

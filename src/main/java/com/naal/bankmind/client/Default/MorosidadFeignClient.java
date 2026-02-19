@@ -6,6 +6,7 @@ import com.naal.bankmind.dto.Default.Response.MorosidadResponseDTO;
 import com.naal.bankmind.dto.Default.Response.BatchMorosidadResponseDTO;
 
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -21,4 +22,10 @@ public interface MorosidadFeignClient {
 
     @PostMapping("/morosidad/predict/batch")
     BatchMorosidadResponseDTO predictBatch(@RequestBody BatchMorosidadRequestDTO request);
+
+    @PostMapping("/morosidad/refresh-model")
+    java.util.Map<String, Object> refreshModel();
+
+    @GetMapping("/morosidad/model-version")
+    java.util.Map<String, Object> getModelVersion();
 }

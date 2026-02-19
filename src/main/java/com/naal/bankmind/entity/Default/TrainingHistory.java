@@ -7,9 +7,9 @@ import java.util.Set;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import com.naal.bankmind.entity.MonthlyHistory;
 import com.naal.bankmind.entity.Default.POJO.MetricsResults;
 import com.naal.bankmind.entity.Default.POJO.ParametersOptuna;
+import java.util.Map;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -42,6 +42,10 @@ public class TrainingHistory {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metrics_results", columnDefinition = "jsonb")
     private MetricsResults metricsResults;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "baseline_distributions", columnDefinition = "jsonb")
+    private Map<String, Object> baselineDistributions;
 
     @Column(name = "id_training_model")
     private Long idTrainingModel;

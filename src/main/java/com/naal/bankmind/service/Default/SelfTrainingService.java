@@ -1,231 +1,196 @@
 package com.naal.bankmind.service.Default;
 
-import com.naal.bankmind.dto.Default.Request.TrainingSampleDTO;
 import com.naal.bankmind.dto.Default.Request.TrainingRequestDTO;
 import com.naal.bankmind.dto.Default.Response.TrainingResponseDTO;
 import com.naal.bankmind.entity.Default.DatasetInfo;
 import com.naal.bankmind.entity.Default.TrainingHistory;
+import com.naal.bankmind.entity.Default.ProductionModelDefault;
+import com.naal.bankmind.client.Default.MorosidadFeignClient;
+import com.naal.bankmind.client.Default.SelfTrainingFeignClient;
 import com.naal.bankmind.repository.Default.DatasetInfoRepository;
 import com.naal.bankmind.repository.Default.TrainingHistoryRepository;
+import com.naal.bankmind.repository.Default.ProductionModelDefaultRepository;
 
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.*;
 
 /**
- * Servicio de orquestación para el auto-retraining del modelo de morosidad.
- *
- * Flujo:
- * 1. Refrescar la vista materializada
- * 2. Consultar el dataset desde la vista
- * 3. Enviar a la API Python para entrenar
- * 4. Guardar resultados en training_history y dataset_info
+ * Servicio de orquestación (versión ligera) para el auto-retraining.
+ * 
+ * Nueva Responsabilidad (V7):
+ * 1. Disparar entrenamiento en API Python (Trigger).
+ * 2. Recibir resultados y métricas.
+ * 3. Guardar historial en BD.
+ * 4. Si Python indica "NEW_CHAMPION", solicitar Hot Reload a API Predicción.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SelfTrainingService {
 
-    private final EntityManager entityManager;
     private final TrainingHistoryRepository trainingHistoryRepository;
     private final DatasetInfoRepository datasetInfoRepository;
-
-    @Value("${self-training.api.base-url:http://localhost:8001}")
-    private String selfTrainingApiUrl;
-
-    @Value("${self-training.api.timeout:300000}")
-    private int apiTimeout;
+    private final ProductionModelDefaultRepository productionModelRepository;
+    private final SelfTrainingFeignClient selfTrainingFeignClient;
+    private final MorosidadFeignClient morosidadFeignClient;
 
     /**
-     * Ejecuta el pipeline completo de auto-retraining.
+     * Ejecuta el trigger de auto-retraining.
      */
     @Transactional
     public Map<String, Object> ejecutarRetraining(Integer optunaTrials) {
-        log.info("🚀 Iniciando pipeline de auto-retraining...");
+        log.info("🚀 Iniciando trigger de auto-retraining (Orquestación Python)...");
         Map<String, Object> resultado = new LinkedHashMap<>();
 
         try {
             // ================================
-            // PASO 1: Refrescar vista materializada
+            // PASO 1: Disparar entrenamiento (Trigger)
             // ================================
-            log.info("🔄 Refrescando vista materializada...");
-            long startRefresh = System.currentTimeMillis();
-            entityManager.createNativeQuery(
-                    "REFRESH MATERIALIZED VIEW vw_training_dataset_morosidad")
-                    .executeUpdate();
-            long refreshTime = System.currentTimeMillis() - startRefresh;
-            log.info("✅ Vista refrescada en {}ms", refreshTime);
-
-            // ================================
-            // PASO 2: Consultar dataset desde la vista
-            // ================================
-            log.info("📊 Extrayendo dataset de la vista materializada...");
-            @SuppressWarnings("unchecked")
-            List<Object[]> rows = entityManager.createNativeQuery(
-                    "SELECT record_id, limit_bal, sex, education, marriage, age, " +
-                            "pay_0, pay_2, pay_3, pay_4, pay_5, pay_6, " +
-                            "bill_amt1, bill_amt2, bill_amt3, bill_amt4, bill_amt5, bill_amt6, " +
-                            "pay_amt1, pay_amt2, pay_amt3, pay_amt4, pay_amt5, pay_amt6, " +
-                            "utilization_rate, default_payment_next_month, sample_weight " +
-                            "FROM vw_training_dataset_morosidad")
-                    .getResultList();
-
-            log.info("📊 Total de muestras extraídas: {}", rows.size());
-
-            if (rows.isEmpty()) {
-                resultado.put("error", "La vista materializada no retornó datos. ¿Hay suficiente historial?");
-                return resultado;
-            }
-
-            // ================================
-            // PASO 3: Mapear a DTOs
-            // ================================
-            List<TrainingSampleDTO> samples = new ArrayList<>(rows.size());
-            for (Object[] row : rows) {
-                TrainingSampleDTO sample = new TrainingSampleDTO();
-                sample.setLimitBal(toDouble(row[1]));
-                sample.setSex(toInt(row[2]));
-                sample.setEducation(toInt(row[3]));
-                sample.setMarriage(toInt(row[4]));
-                sample.setAge(toInt(row[5]));
-                sample.setPay0(toInt(row[6]));
-                sample.setPay2(toInt(row[7]));
-                sample.setPay3(toInt(row[8]));
-                sample.setPay4(toInt(row[9]));
-                sample.setPay5(toInt(row[10]));
-                sample.setPay6(toInt(row[11]));
-                sample.setBillAmt1(toDouble(row[12]));
-                sample.setBillAmt2(toDouble(row[13]));
-                sample.setBillAmt3(toDouble(row[14]));
-                sample.setBillAmt4(toDouble(row[15]));
-                sample.setBillAmt5(toDouble(row[16]));
-                sample.setBillAmt6(toDouble(row[17]));
-                sample.setPayAmt1(toDouble(row[18]));
-                sample.setPayAmt2(toDouble(row[19]));
-                sample.setPayAmt3(toDouble(row[20]));
-                sample.setPayAmt4(toDouble(row[21]));
-                sample.setPayAmt5(toDouble(row[22]));
-                sample.setPayAmt6(toDouble(row[23]));
-                sample.setUtilizationRate(toDouble(row[24]));
-                sample.setDefaultPaymentNextMonth(toInt(row[25]));
-                sample.setSampleWeight(toDouble(row[26]));
-                samples.add(sample);
-            }
-
-            // ================================
-            // PASO 4: Enviar a la API Python
-            // ================================
-            log.info("📡 Enviando {} muestras a la API de entrenamiento ({})...",
-                    samples.size(), selfTrainingApiUrl);
-
             TrainingRequestDTO request = new TrainingRequestDTO();
-            request.setSamples(samples);
             request.setOptunaTrials(optunaTrials != null ? optunaTrials : 30);
 
-            RestTemplate restTemplate = new RestTemplate();
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
+            log.info("📡 Llamando a API Python (Trials={})...", request.getOptunaTrials());
+            long start = System.currentTimeMillis();
 
-            HttpEntity<TrainingRequestDTO> entity = new HttpEntity<>(request, headers);
+            TrainingResponseDTO response = selfTrainingFeignClient.triggerTraining(request);
 
-            long startTraining = System.currentTimeMillis();
-            ResponseEntity<TrainingResponseDTO> response = restTemplate.exchange(
-                    selfTrainingApiUrl + "/morosidad/train",
-                    HttpMethod.POST,
-                    entity,
-                    TrainingResponseDTO.class);
-            long trainingTime = System.currentTimeMillis() - startTraining;
+            long duration = System.currentTimeMillis() - start;
 
-            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
-                resultado.put("error", "La API de entrenamiento no retornó una respuesta válida");
+            if (response == null) {
+                resultado.put("error", "Respuesta nula de API Python");
                 return resultado;
             }
-
-            TrainingResponseDTO trainingResponse = response.getBody();
-            log.info("✅ Entrenamiento completado en {}ms. AUC: {}",
-                    trainingTime, trainingResponse.getMetrics().getAucRoc());
+            log.info("✅ Respuesta recibida en {}ms. Status: {}", duration, response.getDeploymentStatus());
 
             // ================================
-            // PASO 5: Guardar resultados en BD
+            // PASO 2: Guardar Metadata del Dataset
             // ================================
-            log.info("💾 Guardando resultados en la base de datos...");
-
-            // Guardar DatasetInfo
             DatasetInfo datasetInfo = new DatasetInfo();
             datasetInfo.setCreationDate(LocalDateTime.now());
-            datasetInfo.setDataAmount(trainingResponse.getTotalSamples());
-            datasetInfo.setDataTraining(trainingResponse.getTrainSamples());
-            datasetInfo.setDataTesting(trainingResponse.getTestSamples());
-            datasetInfo.setSourceData("vw_training_dataset_morosidad");
+            datasetInfo.setDataAmount(response.getTotalSamples());
+            datasetInfo.setDataTraining(response.getTrainSamples());
+            datasetInfo.setDataTesting(response.getTestSamples());
+            datasetInfo.setSourceData("vw_training_dataset_morosidad (Python DB Connect)");
+
+            // Columnas usadas en el entrenamiento
+            if (response.getColumnsInfo() != null) {
+                datasetInfo.setColumnsInfo(response.getColumnsInfo());
+            }
+
+            // Fecha inicio del dataset
+            if (response.getDatasetStartDate() != null) {
+                try {
+                    datasetInfo.setStartDate(
+                            LocalDateTime.parse(response.getDatasetStartDate().replace(" ", "T").substring(0, 19)));
+                } catch (Exception ex) {
+                    log.warn("⚠️ No se pudo parsear dataset_start_date: {}", response.getDatasetStartDate());
+                }
+            }
+
             datasetInfoRepository.save(datasetInfo);
 
-            // Guardar TrainingHistory
-            TrainingHistory trainingHistory = new TrainingHistory();
-            trainingHistory.setTrainingDate(LocalDateTime.now());
-            trainingHistory.setMetricsResults(trainingResponse.getMetrics());
-            trainingHistory.setParametersOptuna(trainingResponse.getOptunaResult());
-            trainingHistory.setDatasetInfo(datasetInfo);
-            trainingHistory.setInProduction(false);
-            trainingHistory.setBestCadidateModel("VotingClassifier");
-            trainingHistoryRepository.save(trainingHistory);
+            // ================================
+            // PASO 3: Guardar Historial
+            // ================================
+            TrainingHistory history = new TrainingHistory();
+            history.setTrainingDate(LocalDateTime.now());
+            history.setMetricsResults(response.getMetrics());
+            history.setParametersOptuna(response.getOptunaResult());
+            history.setBaselineDistributions(response.getBaselineDistributions());
+            history.setDatasetInfo(datasetInfo);
+            history.setBestCadidateModel("Ensemble (Voting)");
 
-            log.info("✅ Resultados guardados. TrainingHistory ID: {}",
-                    trainingHistory.getIdTrainingHistory());
+            // Enlazar con el modelo actualmente en producción
+            Optional<TrainingHistory> currentProd = trainingHistoryRepository.findByInProductionTrue();
+            if (currentProd.isPresent()) {
+                history.setIdTrainingModel(currentProd.get().getIdTrainingHistory());
+            }
 
             // ================================
-            // Resultado final
+            // PASO 4: Manejo de Status (Promoción)
             // ================================
+            String status = response.getDeploymentStatus();
+            boolean isNewChampion = "NEW_CHAMPION".equals(status);
+
+            if (isNewChampion) {
+                // ══════════════════════════════════════
+                // VERIFICACIÓN TRANSACCIONAL
+                // ══════════════════════════════════════
+                if (!Boolean.TRUE.equals(response.getDagshubVerified())) {
+                    log.error("❌ ABORT: DagsHub no verificó el upload. No se promociona el modelo.");
+                    history.setInProduction(false);
+                    trainingHistoryRepository.save(history);
+
+                    resultado.put("status", "DAGSHUB_VERIFICATION_FAILED");
+                    resultado.put("error", "El modelo no fue verificado en DagsHub. Se cancela la promoción.");
+                    resultado.put("deploymentStatus", "UPLOAD_FAILED");
+                    resultado.put("metrics", response.getMetrics());
+                    resultado.put("durationMs", duration);
+                    return resultado;
+                }
+
+                log.info("🏆 ¡NUEVO CHAMPION VERIFICADO! Actualizando sistema...");
+
+                // 1. Desactivar históricos en training_history
+                trainingHistoryRepository.deactivateAllModels();
+                history.setInProduction(true);
+
+                // 2. Retirar modelo de producción anterior y crear nuevo
+                productionModelRepository.retireAllActiveModels();
+
+                ProductionModelDefault prodModel = new ProductionModelDefault();
+                String version = response.getVersionTag() != null ? response.getVersionTag()
+                        : "v_" + System.currentTimeMillis();
+                prodModel.setVersion(version);
+                prodModel.setDeploymentDate(LocalDateTime.now());
+                prodModel.setAucRoc(String.valueOf(response.getMetrics().getAucRoc()));
+                prodModel.setGiniCoefficient(String.valueOf(response.getMetrics().getGiniCoefficient()));
+                prodModel.setKsStatistic(String.valueOf(response.getMetrics().getKsStatistic()));
+                prodModel.setAssemblyConfiguration(response.getAssemblyConfig());
+                prodModel.setIsActive(true);
+                productionModelRepository.save(prodModel);
+                log.info("✅ Modelo de producción registrado: {}", prodModel.getVersion());
+
+                // 3. Trigger Hot Reload (API Predicción)
+                triggerHotReload();
+
+            } else {
+                log.info("📉 Se mantiene el Champion actual.");
+                history.setInProduction(false);
+            }
+
+            trainingHistoryRepository.save(history);
+
+            // Output Final
             resultado.put("status", "SUCCESS");
-            resultado.put("trainingId", trainingHistory.getIdTrainingHistory());
-            resultado.put("datasetId", datasetInfo.getIdDataset());
-            resultado.put("totalSamples", trainingResponse.getTotalSamples());
-            resultado.put("trainSamples", trainingResponse.getTrainSamples());
-            resultado.put("testSamples", trainingResponse.getTestSamples());
-            resultado.put("classDistribution", trainingResponse.getClassDistribution());
-            resultado.put("scalePosWeight", trainingResponse.getScalePosWeight());
-            resultado.put("metrics", Map.of(
-                    "auc_roc", trainingResponse.getMetrics().getAucRoc(),
-                    "gini", trainingResponse.getMetrics().getGiniCoefficient(),
-                    "ks", trainingResponse.getMetrics().getKsStatistic(),
-                    "f1_score", trainingResponse.getMetrics().getF1Score(),
-                    "accuracy", trainingResponse.getMetrics().getAccuracy()));
-            resultado.put("refreshTimeMs", refreshTime);
-            resultado.put("trainingTimeMs", trainingTime);
-            resultado.put("modelSizeChars", trainingResponse.getModelBase64().length());
+            resultado.put("trainingId", history.getIdTrainingHistory());
+            resultado.put("deploymentStatus", status);
+            resultado.put("metrics", response.getMetrics());
+            resultado.put("durationMs", duration);
 
             return resultado;
 
         } catch (Exception e) {
-            log.error("❌ Error en pipeline de auto-retraining: {}", e.getMessage(), e);
+            log.error("❌ Error en trigger de auto-retraining: {}", e.getMessage(), e);
             resultado.put("status", "ERROR");
             resultado.put("error", e.getMessage());
             return resultado;
         }
     }
 
-    // Utilidades de conversión segura
-    private Double toDouble(Object obj) {
-        if (obj == null)
-            return 0.0;
-        if (obj instanceof Number)
-            return ((Number) obj).doubleValue();
-        return Double.parseDouble(obj.toString());
-    }
-
-    private Integer toInt(Object obj) {
-        if (obj == null)
-            return 0;
-        if (obj instanceof Number)
-            return ((Number) obj).intValue();
-        return Integer.parseInt(obj.toString());
+    private void triggerHotReload() {
+        try {
+            log.info("♻️ Solicitando Hot Reload a API de Predicción...");
+            morosidadFeignClient.refreshModel();
+            log.info("✅ Solicitud enviada correctamente.");
+        } catch (Exception e) {
+            log.error("❌ Error solicitando Hot Reload: {}", e.getMessage());
+        }
     }
 }

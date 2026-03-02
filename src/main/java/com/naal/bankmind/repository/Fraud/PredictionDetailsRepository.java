@@ -1,9 +1,10 @@
 package com.naal.bankmind.repository.Fraud;
 
-import com.naal.bankmind.entity.PredictionDetails;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
+import com.naal.bankmind.entity.Fraud.PredictionDetails;
 
 import java.util.List;
 

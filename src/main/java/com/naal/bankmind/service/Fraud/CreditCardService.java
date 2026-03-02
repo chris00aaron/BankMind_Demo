@@ -1,6 +1,6 @@
 package com.naal.bankmind.service.Fraud;
 
-import com.naal.bankmind.entity.CreditCards;
+import com.naal.bankmind.entity.Fraud.CreditCards;
 import com.naal.bankmind.repository.Fraud.CreditCardRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

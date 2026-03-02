@@ -1,6 +1,8 @@
 package com.naal.bankmind.controller.Fraud;
 
 import com.naal.bankmind.dto.Fraud.*;
+import com.naal.bankmind.dto.Fraud.DemographicStatsDto;
+import com.naal.bankmind.dto.Fraud.TemporalStatsDto;
 import com.naal.bankmind.service.Fraud.FraudAlertService;
 import com.naal.bankmind.service.Fraud.FraudPredictionService;
 import com.naal.bankmind.service.Fraud.FraudStatsService;
@@ -172,5 +174,25 @@ public class FraudController {
         return ResponseEntity.ok(Map.of(
                 "fraud_api_available", isAvailable,
                 "status", isAvailable ? "UP" : "DOWN"));
+    }
+
+    // ==================== ANALYTICS ====================
+
+    /**
+     * GET /api/fraud/stats/demographics - Perfil demográfico del defraudador
+     * Devuelve fraudes agrupados por género × rango de edad.
+     */
+    @GetMapping("/stats/demographics")
+    public ResponseEntity<List<DemographicStatsDto>> getDemographicStats() {
+        return ResponseEntity.ok(statsService.getDemographicStats());
+    }
+
+    /**
+     * GET /api/fraud/stats/temporal - Distribución temporal del fraude
+     * Devuelve fraudes agrupados por día de la semana × mes.
+     */
+    @GetMapping("/stats/temporal")
+    public ResponseEntity<List<TemporalStatsDto>> getTemporalStats() {
+        return ResponseEntity.ok(statsService.getTemporalStats());
     }
 }

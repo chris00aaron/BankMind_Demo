@@ -1,8 +1,16 @@
 package com.naal.bankmind.service.Fraud;
 
-import com.naal.bankmind.dto.Fraud.*;
-import com.naal.bankmind.entity.*;
+import com.naal.bankmind.dto.Fraud.AuditDataDto;
+import com.naal.bankmind.dto.Fraud.FraudAlertDto;
+import com.naal.bankmind.dto.Fraud.FraudAlertsPageDto;
+import com.naal.bankmind.dto.Fraud.RiskFactorDto;
+import com.naal.bankmind.entity.Customer;
+import com.naal.bankmind.entity.Localization;
+import com.naal.bankmind.entity.Fraud.FraudPredictions;
+import com.naal.bankmind.entity.Fraud.OperationalTransactions;
 import com.naal.bankmind.repository.Fraud.FraudPredictionRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -14,41 +22,43 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Servicio especializado en CONSULTA de alertas de fraude
- * Responsabilidad: Paginación, filtros, búsqueda de alertas
- * 
- * Principio SOLID: Single Responsibility
+ * Servicio especializado en CONSULTA de alertas de fraude.
+ *
+ * Responsabilidad única: paginación, filtros y búsqueda de alertas.
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class FraudAlertService {
 
     private final FraudPredictionRepository fraudPredictionRepository;
 
-    public FraudAlertService(FraudPredictionRepository fraudPredictionRepository) {
-        this.fraudPredictionRepository = fraudPredictionRepository;
-    }
-
     /**
-     * Obtiene alertas de fraude paginadas con filtros y búsqueda
+     * Obtiene alertas de fraude paginadas con filtros y búsqueda.
      */
     @Transactional(readOnly = true)
     public FraudAlertsPageDto getAlertsPage(
             int page, int size, String sortBy, String order,
             String veredicto, String search) {
 
-        Sort.Direction direction = "asc".equalsIgnoreCase(order) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort.Direction direction = "asc".equalsIgnoreCase(order)
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
         String sortField = "score".equalsIgnoreCase(sortBy) ? "xgboostScore" : "predictionDate";
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortField));
 
         Page<FraudPredictions> resultsPage;
 
-        boolean hasVeredicto = veredicto != null && !veredicto.isEmpty() && !"TODO".equalsIgnoreCase(veredicto);
+        boolean hasVeredicto = veredicto != null && !veredicto.isEmpty()
+                && !"TODO".equalsIgnoreCase(veredicto);
         boolean hasSearch = search != null && !search.isEmpty();
 
         if (hasVeredicto && hasSearch) {
-            resultsPage = fraudPredictionRepository.searchByVeredictoAndTransactionId(veredicto, search, pageable);
+            resultsPage = fraudPredictionRepository
+                    .searchByVeredictoAndTransactionId(veredicto, search, pageable);
         } else if (hasVeredicto) {
-            resultsPage = fraudPredictionRepository.findByVeredictoWithDetailsPaged(veredicto, pageable);
+            resultsPage = fraudPredictionRepository
+                    .findByVeredictoWithDetailsPaged(veredicto, pageable);
         } else if (hasSearch) {
             resultsPage = fraudPredictionRepository.searchByTransactionId(search, pageable);
         } else {
@@ -71,16 +81,17 @@ public class FraudAlertService {
     }
 
     /**
-     * Obtiene el detalle completo de una alerta por su ID
+     * Obtiene el detalle completo de una alerta por su ID.
      */
     @Transactional(readOnly = true)
     public FraudAlertDto getAlertDetail(Long predictionId) {
-        FraudPredictions prediction = fraudPredictionRepository.findByIdWithDetails(predictionId)
+        FraudPredictions prediction = fraudPredictionRepository
+                .findByIdWithDetails(predictionId)
                 .orElseThrow(() -> new RuntimeException("Alerta no encontrada con ID: " + predictionId));
         return mapToAlertDtoWithDetails(prediction);
     }
 
-    // ================== MAPEO ==================
+    // ─── Mapeo ────────────────────────────────────────────────────────────────
 
     private FraudAlertDto mapToAlertDto(FraudPredictions prediction) {
         OperationalTransactions transaction = prediction.getTransaction();
@@ -95,6 +106,10 @@ public class FraudAlertService {
             }
         }
 
+        String recomendacion = FraudConstants.VEREDICTO_ALTO_RIESGO.equals(prediction.getVeredicto())
+                ? FraudConstants.RECOMENDACION_BLOQUEAR
+                : FraudConstants.RECOMENDACION_APROBAR;
+
         return FraudAlertDto.builder()
                 .predictionId(prediction.getIdFraudPrediction())
                 .transactionId(transaction != null ? transaction.getTransNum() : null)
@@ -104,10 +119,12 @@ public class FraudAlertService {
                 .amount(transaction != null ? transaction.getAmt().doubleValue() : null)
                 .merchant(transaction != null ? transaction.getMerchant() : null)
                 .category(transaction != null ? transaction.getCategoryName() : null)
-                .customerName(customer != null ? customer.getFirstName() + " " + customer.getSurname() : null)
+                .customerName(customer != null
+                        ? customer.getFirstName() + " " + customer.getSurname()
+                        : null)
                 .predictionDate(prediction.getPredictionDate())
                 .location(location)
-                .recomendacion("ALTO RIESGO".equals(prediction.getVeredicto()) ? "Bloquear y Notificar" : "Aprobar")
+                .recomendacion(recomendacion)
                 .build();
     }
 

@@ -1,10 +1,14 @@
 package com.naal.bankmind.service.Default;
 
 import com.naal.bankmind.entity.Default.ModelMonitoringLog;
+import com.naal.bankmind.entity.Default.MonitoringPolicy;
+import com.naal.bankmind.entity.Default.ProductionModelDefault;
 import com.naal.bankmind.entity.Default.TrainingHistory;
 import com.naal.bankmind.entity.Default.DefaultPrediction;
 import com.naal.bankmind.entity.MonthlyHistory;
 import com.naal.bankmind.repository.Default.ModelMonitoringLogRepository;
+import com.naal.bankmind.repository.Default.MonitoringPolicyRepository;
+import com.naal.bankmind.repository.Default.ProductionModelDefaultRepository;
 import com.naal.bankmind.repository.Default.TrainingHistoryRepository;
 import com.naal.bankmind.repository.Default.DefaultPredictionRepository;
 import jakarta.persistence.EntityManager;
@@ -27,6 +31,8 @@ public class MonitoringService {
     private final ModelMonitoringLogRepository monitoringLogRepository;
     private final TrainingHistoryRepository trainingHistoryRepository;
     private final DefaultPredictionRepository defaultPredictionRepository;
+    private final ProductionModelDefaultRepository productionModelRepository;
+    private final MonitoringPolicyRepository monitoringPolicyRepository;
     private final SelfTrainingService selfTrainingService;
 
     // Features críticas para monitorear drift
@@ -36,12 +42,23 @@ public class MonitoringService {
     /**
      * TAREA DIARIA (1:00 AM)
      * Verifica si hubo data drift en las features clave comparando con el baseline.
-     * Si drift > 0.25 por 3 días consecutivos -> Trigger Auto-Retraining.
+     * Los umbrales se obtienen de la política de monitoreo activa.
      */
     @Scheduled(cron = "0 0 1 * * ?")
     @Transactional
     public void checkDailyDrift() {
         log.info("🕵️ Iniciando monitoreo diario de Data Drift...");
+
+        // 0. Obtener política de monitoreo activa (o usar defaults)
+        MonitoringPolicy policy = monitoringPolicyRepository.findByIsActiveTrue().orElse(null);
+        double psiThreshold = policy != null ? policy.getPsiThreshold().doubleValue() : 0.25;
+        int daysTrigger = policy != null ? policy.getConsecutiveDaysTrigger() : 3;
+        int trialsDrift = policy != null ? policy.getOptunaTrialsDrift() : 30;
+
+        if (policy == null) {
+            log.warn("⚠️ No hay política de monitoreo activa. Usando valores por defecto (PSI={}, días={}, trials={})",
+                    psiThreshold, daysTrigger, trialsDrift);
+        }
 
         // 1. Obtener el modelo activo (el último entrenado exitosamente con baseline)
         Optional<TrainingHistory> activeModelOpt = trainingHistoryRepository.findAll().stream()
@@ -57,11 +74,10 @@ public class MonitoringService {
         TrainingHistory activeModel = activeModelOpt.get();
         Map<String, Object> baseline = activeModel.getBaselineDistributions();
 
-        // 2. Extraer data del día anterior (simulado consultando la vista reciente)
-        // En prod real: consultaríamos solo los registros insertados ayer.
-        // Aquí usamos la vista completa filtrada por fecha reciente para simular
-        // 'current data'.
+        // Obtener el modelo en producción para la FK
+        Optional<ProductionModelDefault> prodModelOpt = productionModelRepository.findByIsActiveTrue();
 
+        // 2. Extraer data del día anterior (simulado consultando la vista reciente)
         List<Map<String, Object>> currentData = fetchCurrentDataSamples();
 
         if (currentData.isEmpty()) {
@@ -87,10 +103,10 @@ public class MonitoringService {
         }
 
         double avgPsi = featuresCount > 0 ? totalPsi / featuresCount : 0;
-        log.info("📊 PSI Promedio del día: {}", String.format("%.4f", avgPsi));
+        log.info("📊 PSI Promedio del día: {} (umbral: {})", String.format("%.4f", avgPsi), psiThreshold);
 
-        // 4. Evaluar reglas de Trigger
-        boolean significantDrift = avgPsi > 0.25;
+        // 4. Evaluar reglas de Trigger (usando umbral de la política)
+        boolean significantDrift = avgPsi > psiThreshold;
 
         // Obtener historial previo para contar días consecutivos
         int consecutiveDays = 0;
@@ -107,19 +123,29 @@ public class MonitoringService {
             consecutiveDays = 0; // Reset si hoy está ok
         }
 
-        // 5. Guardar Log
-        ModelMonitoringLog logEntry = new ModelMonitoringLog();
-        logEntry.setMonitoringDate(LocalDate.now());
-        logEntry.setIdTrainingModel(activeModel.getIdTrainingHistory());
+        // 5. Guardar Log — si ya existe para hoy, actualizar en vez de crear nuevo
+        Optional<ModelMonitoringLog> existingToday = monitoringLogRepository.findByDate(LocalDate.now());
+        ModelMonitoringLog logEntry;
+        if (existingToday.isPresent()) {
+            logEntry = existingToday.get();
+            log.info("📝 Actualizando log existente para hoy (ID: {})", logEntry.getIdMonitoring());
+        } else {
+            logEntry = new ModelMonitoringLog();
+            logEntry.setMonitoringDate(LocalDate.now());
+        }
+        prodModelOpt.ifPresent(logEntry::setProductionModel);
+        logEntry.setMonitoringPolicy(policy);
         logEntry.setPsiFeatures(psiResults);
         logEntry.setDriftDetected(significantDrift);
         logEntry.setConsecutiveDaysDrift(consecutiveDays);
         monitoringLogRepository.save(logEntry);
 
-        // 6. Trigger Auto-Retraining si corresponde
-        if (consecutiveDays >= 3) {
-            log.error("🚀 ALERTA CRÍTICA: Drift sostenido por 3 días. Iniciando Auto-Retraining...");
-            selfTrainingService.ejecutarRetraining(30); // 30 trials
+        // 6. Trigger Auto-Retraining si corresponde (usando días y trials de la
+        // política)
+        if (consecutiveDays >= daysTrigger) {
+            log.error("🚀 ALERTA CRÍTICA: Drift sostenido por {} días. Iniciando Auto-Retraining ({} trials)...",
+                    daysTrigger, trialsDrift);
+            selfTrainingService.ejecutarRetraining(trialsDrift);
         }
     }
 
@@ -132,6 +158,18 @@ public class MonitoringService {
     @Transactional
     public void validateMonthlyPerformance() {
         log.info("📅 Iniciando validación mensual de Performance...");
+
+        // 0. Obtener política de monitoreo activa (o usar defaults)
+        MonitoringPolicy policy = monitoringPolicyRepository.findByIsActiveTrue().orElse(null);
+        double aucDropThreshold = policy != null ? policy.getAucDropThreshold().doubleValue() : 0.05;
+        double ksDropThreshold = policy != null ? policy.getKsDropThreshold().doubleValue() : 0.10;
+        int trialsValidation = policy != null ? policy.getOptunaTrialsValidation() : 50;
+
+        if (policy == null) {
+            log.warn(
+                    "⚠️ No hay política de monitoreo activa. Usando valores por defecto (AUC drop={}, KS drop={}, trials={})",
+                    aucDropThreshold, ksDropThreshold, trialsValidation);
+        }
 
         // Evaluar el mes antepasado (ej: si hoy es 1 de Mayo, evaluamos Marzo,
         // porque en Abril terminaron de pagar o vencerse las deudas de Marzo)
@@ -156,11 +194,13 @@ public class MonitoringService {
                 .getResultList();
 
         for (Long modelId : modelIds) {
-            validateModelForPeriod(modelId, startValidationInfo, endValidationInfo);
+            validateModelForPeriod(modelId, startValidationInfo, endValidationInfo,
+                    aucDropThreshold, ksDropThreshold, trialsValidation);
         }
     }
 
-    private void validateModelForPeriod(Long modelId, LocalDateTime start, LocalDateTime end) {
+    private void validateModelForPeriod(Long modelId, LocalDateTime start, LocalDateTime end,
+            double aucDropThreshold, double ksDropThreshold, int trialsValidation) {
         log.info("🔍 Validando Modelo ID {} para el periodo {} - {}", modelId, start, end);
 
         List<DefaultPrediction> predictions = defaultPredictionRepository.findPredictionsForValidation(start, end,
@@ -219,36 +259,32 @@ public class MonitoringService {
                 String.format("%.2f", predictedRate * 100), String.format("%.2f", actualRate * 100));
 
         // Comparar con métricas de entrenamiento (Baseline)
-        // Buscamos el TrainingHistory asociado a este ProductionModel
-        // NOTA: Asumimos que idProductionModel mapea a un idTrainingHistory o similar.
-        // Si no tenemos enlace directo fácil, usamos el último training history previo
-        // a la fecha.
-        // Aquí simplificaremos buscando el TrainingHistory por ID si coinciden, o
-        // consultando repo.
-        Optional<TrainingHistory> historyOpt = trainingHistoryRepository.findById(modelId); // Asumiendo ID compartido o
-                                                                                            // mapeo
+        Optional<TrainingHistory> historyOpt = trainingHistoryRepository.findById(modelId);
 
         boolean triggerRetraining = false;
 
         if (historyOpt.isPresent()) {
             double aucTrain = historyOpt.get().getMetricsResults().getAucRoc();
-            // Regla: Caída de AUC > 5%
-            if ((aucTrain - aucReal) > 0.05) {
-                log.warn("🚨 DEGRADACIÓN DETECTADA: Caída de AUC ({} -> {})", aucTrain, aucReal);
+            // Regla: Caída de AUC (usando umbral de la política)
+            if ((aucTrain - aucReal) > aucDropThreshold) {
+                log.warn("🚨 DEGRADACIÓN DETECTADA: Caída de AUC ({} -> {}) supera umbral de {}",
+                        aucTrain, aucReal, aucDropThreshold);
                 triggerRetraining = true;
             }
-            // Regla: Caída de KS > 10%
+            // Regla: Caída de KS (usando umbral de la política)
             double ksTrain = historyOpt.get().getMetricsResults().getKsStatistic();
-            if ((ksTrain - ksReal) > 0.10) {
-                log.warn("🚨 DEGRADACIÓN DETECTADA: Caída de KS ({} -> {})", ksTrain, ksReal);
+            if ((ksTrain - ksReal) > ksDropThreshold) {
+                log.warn("🚨 DEGRADACIÓN DETECTADA: Caída de KS ({} -> {}) supera umbral de {}",
+                        ksTrain, ksReal, ksDropThreshold);
                 triggerRetraining = true;
             }
         }
 
-        // Guardar Log (Mensual)
+        // Guardar Log (Mensual) — con FK al modelo en producción y a la política activa
         ModelMonitoringLog monitoringEntry = new ModelMonitoringLog();
         monitoringEntry.setMonitoringDate(LocalDate.now());
-        monitoringEntry.setIdTrainingModel(modelId);
+        productionModelRepository.findByIsActiveTrue().ifPresent(monitoringEntry::setProductionModel);
+        monitoringEntry.setMonitoringPolicy(monitoringPolicyRepository.findByIsActiveTrue().orElse(null));
         monitoringEntry.setValidationStatus("VALIDATED");
         monitoringEntry.setAucRocReal(aucReal);
         monitoringEntry.setKsReal(ksReal);
@@ -257,8 +293,10 @@ public class MonitoringService {
         monitoringLogRepository.save(monitoringEntry);
 
         if (triggerRetraining) {
-            log.error("🚀 ALERTA MENSUAL: Degradación de performance confirmada. Iniciando Auto-Retraining...");
-            selfTrainingService.ejecutarRetraining(50); // Más exhaustivo
+            log.error(
+                    "🚀 ALERTA MENSUAL: Degradación de performance confirmada. Iniciando Auto-Retraining ({} trials)...",
+                    trialsValidation);
+            selfTrainingService.ejecutarRetraining(trialsValidation);
         }
     }
 

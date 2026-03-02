@@ -22,4 +22,9 @@ public interface ProductionModelDefaultRepository extends JpaRepository<Producti
      * Obtiene el modelo activo en producción.
      */
     Optional<ProductionModelDefault> findByIsActiveTrue();
+
+    /**
+     * Obtiene un modelo por su versión.
+     */
+    Optional<ProductionModelDefault> findByVersion(String version);
 }

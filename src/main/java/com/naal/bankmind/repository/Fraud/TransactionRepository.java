@@ -1,10 +1,11 @@
 package com.naal.bankmind.repository.Fraud;
 
-import com.naal.bankmind.entity.OperationalTransactions;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
+import com.naal.bankmind.entity.Fraud.OperationalTransactions;
 
 import java.util.List;
 import java.util.Optional;
@@ -64,4 +65,24 @@ public interface TransactionRepository extends JpaRepository<OperationalTransact
          * Para dashboard: mostrar PENDING / APPROVED / REJECTED
          */
         long countByStatus(String status);
+
+        // ==================== BULK LOAD (para BatchPredictionService)
+        // ====================
+
+        /**
+         * Carga múltiples transacciones por sus IDs en UNA SOLA query con JOIN FETCH.
+         * Reemplaza N llamadas individuales a findByIdWithCustomerData().
+         *
+         * @param ids Lista de IDs a cargar
+         * @return Lista de transacciones con datos de cliente cargados
+         */
+        @Query("SELECT t FROM OperationalTransactions t " +
+                        "LEFT JOIN FETCH t.creditCard cc " +
+                        "LEFT JOIN FETCH cc.customer c " +
+                        "LEFT JOIN FETCH c.localization l " +
+                        "LEFT JOIN FETCH c.gender g " +
+                        "LEFT JOIN FETCH t.category cat " +
+                        "WHERE t.idTransaction IN :ids")
+        List<OperationalTransactions> findAllByIdsWithCustomerData(
+                        @org.springframework.data.repository.query.Param("ids") List<Long> ids);
 }

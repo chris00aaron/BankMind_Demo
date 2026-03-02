@@ -44,4 +44,7 @@ public class AccountDetails {
 
     @Column(name = "is_active_member")
     private Boolean isActiveMember;
+
+    @Column(name = "sbs_category_real", length = 50)
+    private String sbsCategoryReal;
 }

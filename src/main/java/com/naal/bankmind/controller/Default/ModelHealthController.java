@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
  * Controlador para monitoreo del modelo en producción.
  */
 @RestController
-@RequestMapping("/api/model")
+@RequestMapping("/api/morosidad/model-health")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class ModelHealthController {

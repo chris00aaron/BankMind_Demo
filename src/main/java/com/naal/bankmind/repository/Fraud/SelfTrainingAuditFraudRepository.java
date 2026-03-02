@@ -1,8 +1,9 @@
 package com.naal.bankmind.repository.Fraud;
 
-import com.naal.bankmind.entity.SelfTrainingAuditFraud;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import com.naal.bankmind.entity.Fraud.SelfTrainingAuditFraud;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,6 +15,12 @@ public interface SelfTrainingAuditFraudRepository extends JpaRepository<SelfTrai
      * Encontrar el último entrenamiento
      */
     SelfTrainingAuditFraud findTopByOrderByEndTrainingDesc();
+
+    /**
+     * Encontrar el último entrenamiento EXITOSO (usado por el Sensor Reactivo de
+     * Recall).
+     */
+    SelfTrainingAuditFraud findTopByIsSuccessTrueOrderByEndTrainingDesc();
 
     /**
      * Encontrar entrenamientos exitosos recientes

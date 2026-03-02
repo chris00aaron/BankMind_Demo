@@ -22,8 +22,13 @@ public class ModelMonitoringLog {
     @Column(name = "monitoring_date", nullable = false)
     private LocalDate monitoringDate = LocalDate.now();
 
-    @Column(name = "id_training_model")
-    private Long idTrainingModel;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_production_model")
+    private ProductionModelDefault productionModel;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_monitoring_policy")
+    private MonitoringPolicy monitoringPolicy;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "psi_features", columnDefinition = "jsonb")

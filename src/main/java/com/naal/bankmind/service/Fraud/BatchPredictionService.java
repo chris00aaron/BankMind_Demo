@@ -1,188 +1,296 @@
 package com.naal.bankmind.service.Fraud;
 
-import com.naal.bankmind.dto.Fraud.*;
-import com.naal.bankmind.entity.*;
+import com.naal.bankmind.dto.Fraud.BatchApiResponseDto;
+import com.naal.bankmind.dto.Fraud.BatchResultDto;
+import com.naal.bankmind.dto.Fraud.BatchResultDto.BatchItemResultDto;
+import com.naal.bankmind.dto.Fraud.FraudPredictionRequestDto;
+import com.naal.bankmind.dto.Fraud.FraudPredictionResponseDto;
+import com.naal.bankmind.dto.Fraud.PendingTransactionDto;
+import com.naal.bankmind.entity.Fraud.CreditCards;
+import com.naal.bankmind.entity.Fraud.OperationalTransactions;
+import com.naal.bankmind.entity.Customer;
 import com.naal.bankmind.repository.Fraud.FraudPredictionRepository;
 import com.naal.bankmind.repository.Fraud.TransactionRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Servicio para procesamiento de predicciones por lotes
+ * Servicio para procesamiento de predicciones por lotes.
+ *
+ * ─── Diseño para producción ────────────────────────────────────────────────
+ * El flujo se divide en tres fases con ciclos de transacción independientes:
+ *
+ * FASE 1 — {@link #loadTransactionsBulk}: una query IN (ids) carga y verifica
+ * todas las transacciones. Se hace readOnly para minimizar lock time.
+ *
+ * FASE 2 — {@link #callBatchApi}: llamada HTTP a la API Python. Sin
  * 
- * OPTIMIZADO: Usa una sola llamada a la API para todo el lote
- * en lugar de una llamada por transacción.
+ * @Transactional → la conexión del pool NO permanece abierta
+ *                durante los 10-30 segundos que puede tardar un batch.
+ *
+ *                FASE 3 — {@link #savePredictions}: guarda las predicciones en
+ *                una
+ *                transacción corta y dedicada.
+ *
+ *                processNextBatch() NO propaga su transacción a processBatch()
+ *                porque
+ *                cada fase gestiona la suya propia.
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class BatchPredictionService {
 
     private final TransactionRepository transactionRepository;
     private final FraudPredictionRepository fraudPredictionRepository;
     private final FraudApiClient fraudApiClient;
+    private final PredictionMapper predictionMapper;
 
     private static final int MAX_BATCH_SIZE = 100;
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-    public BatchPredictionService(
-            TransactionRepository transactionRepository,
-            FraudPredictionRepository fraudPredictionRepository,
-            FraudApiClient fraudApiClient) {
-        this.transactionRepository = transactionRepository;
-        this.fraudPredictionRepository = fraudPredictionRepository;
-        this.fraudApiClient = fraudApiClient;
-    }
+    // ─── API pública ────────────────────────────────────────────────────────
 
     /**
-     * Obtiene el conteo de transacciones pendientes de análisis
+     * Obtiene el conteo de transacciones pendientes de análisis.
      */
     public long getPendingCount() {
         return transactionRepository.countPendingPredictions();
     }
 
     /**
-     * Obtiene lista de transacciones pendientes de análisis
+     * Lista transacciones pendientes de análisis (para mostrar en UI).
      */
     @Transactional(readOnly = true)
     public List<PendingTransactionDto> getPendingTransactions(int limit) {
         int size = Math.min(limit, MAX_BATCH_SIZE);
-        List<OperationalTransactions> pending = transactionRepository.findPendingPredictions(PageRequest.of(0, size));
-
-        return pending.stream()
+        return transactionRepository
+                .findPendingPredictions(PageRequest.of(0, size))
+                .stream()
                 .map(this::mapToPendingDto)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Procesa un lote de transacciones por sus IDs
-     * OPTIMIZADO: Una sola llamada HTTP a la API de Python
+     * Procesa un lote de transacciones por sus IDs.
+     *
+     * Sin @Transactional propio: la transacción de BD se abre y cierra
+     * dentro de cada fase (loadTransactionsBulk y savePredictions).
+     * La llamada HTTP (callBatchApi) queda completamente fuera de cualquier
+     * transacción activa, liberando el pool durante la espera de red.
      */
-    @Transactional
     public BatchResultDto processBatch(List<Long> transactionIds) {
         int size = Math.min(transactionIds.size(), MAX_BATCH_SIZE);
         List<Long> idsToProcess = transactionIds.subList(0, size);
 
-        List<BatchResultDto.BatchItemResultDto> results = new ArrayList<>();
-        int totalFrauds = 0;
-        int totalLegitimate = 0;
-        int totalErrors = 0;
+        List<BatchItemResultDto> results = new ArrayList<>();
 
-        // 1. CARGAR TODAS LAS TRANSACCIONES CON DATOS DEL CLIENTE
+        // FASE 1: cargar datos en bulk y separar "ya procesados" de "a procesar"
+        BatchLoad loaded = loadTransactionsBulk(idsToProcess, results);
+
+        if (loaded.apiRequests().isEmpty()) {
+            // Todos already o no encontrados — nada que llamar
+            return buildSummary(results);
+        }
+
+        // FASE 2: llamar API de IA sin transacción de BD abierta
+        BatchApiResponseDto apiResponse = callBatchApi(loaded, results);
+
+        if (apiResponse == null) {
+            return buildSummary(results);
+        }
+
+        // FASE 3: persistir predicciones en transacción corta y separada
+        savePredictions(apiResponse, loaded.transactionsMap(), loaded.transNumToIdMap(), results);
+
+        return buildSummary(results);
+    }
+
+    /**
+     * Procesa automáticamente las siguientes N transacciones pendientes.
+     *
+     * Fix B5: NO lleva @Transactional propio porque processBatch() ya gestiona
+     * sus propias transacciones por fase. La carga de IDs pendientes ocurre en
+     * su propia transacción readOnly, aislada del procesamiento del batch.
+     */
+    public BatchResultDto processNextBatch(int limit) {
+        int size = Math.min(limit, MAX_BATCH_SIZE);
+        List<Long> pendingIds = loadPendingIds(size);
+        if (pendingIds.isEmpty()) {
+            log.info("No hay transacciones pendientes de análisis.");
+            return BatchResultDto.builder()
+                    .totalProcessed(0).totalFrauds(0)
+                    .totalLegitimate(0).totalErrors(0)
+                    .results(List.of())
+                    .build();
+        }
+        return processBatch(pendingIds);
+    }
+
+    // ─── Fases internas ──────────────────────────────────────────────────────
+
+    /**
+     * FASE 0: Carga IDs pendientes en una transacción readOnly corta.
+     */
+    @Transactional(readOnly = true)
+    protected List<Long> loadPendingIds(int size) {
+        return transactionRepository.findPendingPredictionIds(PageRequest.of(0, size));
+    }
+
+    /**
+     * FASE 1: Carga todas las transacciones y filtra las ya procesadas.
+     *
+     * Fix B2: una sola query findExistingTransactionIds() en lugar de N
+     * llamadas a existsByTransactionIdTransaction().
+     * Fix B3: una sola query findAllByIdsWithCustomerData() en lugar de N
+     * llamadas a findByIdWithCustomerData().
+     */
+    @Transactional(readOnly = true)
+    protected BatchLoad loadTransactionsBulk(List<Long> idsToProcess,
+            List<BatchItemResultDto> results) {
+        // B2: verificación masiva en una sola query
+        Set<Long> alreadyPredicted = fraudPredictionRepository
+                .findExistingTransactionIds(idsToProcess);
+
+        List<Long> idsNeedingPrediction = new ArrayList<>();
+        for (Long id : idsToProcess) {
+            if (alreadyPredicted.contains(id)) {
+                results.add(errorItem(id, "Ya tiene predicción"));
+            } else {
+                idsNeedingPrediction.add(id);
+            }
+        }
+
         Map<Long, OperationalTransactions> transactionsMap = new HashMap<>();
         List<FraudPredictionRequestDto> apiRequests = new ArrayList<>();
         Map<String, Long> transNumToIdMap = new HashMap<>();
 
-        for (Long transactionId : idsToProcess) {
-            // Verificar si ya tiene predicción
-            if (fraudPredictionRepository.existsByTransactionIdTransaction(transactionId)) {
-                results.add(BatchResultDto.BatchItemResultDto.builder()
-                        .idTransaction(transactionId)
-                        .status("error")
-                        .errorMessage("Ya tiene predicción")
-                        .build());
-                totalErrors++;
-                continue;
+        if (!idsNeedingPrediction.isEmpty()) {
+            // B3: carga masiva en una sola query con JOIN FETCH
+            List<OperationalTransactions> loaded = transactionRepository
+                    .findAllByIdsWithCustomerData(idsNeedingPrediction);
+
+            Set<Long> loadedIds = loaded.stream()
+                    .map(OperationalTransactions::getIdTransaction)
+                    .collect(Collectors.toSet());
+
+            // Marcar los que no se encontraron
+            for (Long id : idsNeedingPrediction) {
+                if (!loadedIds.contains(id)) {
+                    results.add(errorItem(id, "Transacción no encontrada"));
+                }
             }
 
-            // Obtener transacción con datos del cliente
-            OperationalTransactions transaction = transactionRepository.findByIdWithCustomerData(transactionId)
-                    .orElse(null);
-
-            if (transaction == null) {
-                results.add(BatchResultDto.BatchItemResultDto.builder()
-                        .idTransaction(transactionId)
-                        .status("error")
-                        .errorMessage("Transacción no encontrada")
-                        .build());
-                totalErrors++;
-                continue;
-            }
-
-            transactionsMap.put(transactionId, transaction);
-            FraudPredictionRequestDto apiRequest = buildApiRequest(transaction);
-            apiRequests.add(apiRequest);
-            transNumToIdMap.put(transaction.getTransNum(), transactionId);
-        }
-
-        // 2. LLAMAR A LA API DE IA CON TODO EL LOTE (UNA SOLA LLAMADA HTTP)
-        if (!apiRequests.isEmpty()) {
-            try {
-                BatchApiResponseDto batchResponse = fraudApiClient.predictFraudBatch(apiRequests);
-
-                // 3. PROCESAR RESULTADOS Y GUARDAR PREDICCIONES
-                for (FraudPredictionResponseDto apiResponse : batchResponse.getResults()) {
-                    Long transactionId = transNumToIdMap.get(apiResponse.getTransactionId());
-                    OperationalTransactions transaction = transactionsMap.get(transactionId);
-
-                    if (transaction != null && apiResponse.getVeredicto() != null
-                            && !"ERROR".equals(apiResponse.getVeredicto())) {
-                        savePrediction(transaction, apiResponse);
-
-                        boolean isFraud = "ALTO RIESGO".equals(apiResponse.getVeredicto());
-                        results.add(BatchResultDto.BatchItemResultDto.builder()
-                                .idTransaction(transactionId)
-                                .transNum(transaction.getTransNum())
-                                .amt(transaction.getAmt().doubleValue())
-                                .veredicto(apiResponse.getVeredicto())
-                                .score(apiResponse.getScoreFinal())
-                                .status("success")
-                                .build());
-
-                        if (isFraud) {
-                            totalFrauds++;
-                        } else {
-                            totalLegitimate++;
-                        }
-                    } else {
-                        results.add(BatchResultDto.BatchItemResultDto.builder()
-                                .idTransaction(transactionId)
-                                .status("error")
-                                .errorMessage(
-                                        apiResponse.getError() != null ? apiResponse.getError() : "Error en predicción")
-                                .build());
-                        totalErrors++;
-                    }
-                }
-            } catch (Exception e) {
-                // Si falla la llamada batch, registrar error para todas las transacciones
-                // pendientes
-                for (Long id : transactionsMap.keySet()) {
-                    results.add(BatchResultDto.BatchItemResultDto.builder()
-                            .idTransaction(id)
-                            .status("error")
-                            .errorMessage("Error API: " + e.getMessage())
-                            .build());
-                    totalErrors++;
-                }
+            for (OperationalTransactions tx : loaded) {
+                transactionsMap.put(tx.getIdTransaction(), tx);
+                apiRequests.add(predictionMapper.buildApiRequest(tx));
+                transNumToIdMap.put(tx.getTransNum(), tx.getIdTransaction());
             }
         }
 
-        return BatchResultDto.builder()
-                .totalProcessed(results.size())
-                .totalFrauds(totalFrauds)
-                .totalLegitimate(totalLegitimate)
-                .totalErrors(totalErrors)
-                .results(results)
-                .build();
+        log.debug("Batch load: {} a procesar, {} ya predichos, {} no encontrados",
+                transactionsMap.size(),
+                alreadyPredicted.size(),
+                idsToProcess.size() - alreadyPredicted.size() - transactionsMap.size());
+
+        return new BatchLoad(transactionsMap, apiRequests, transNumToIdMap);
     }
 
     /**
-     * Procesa automáticamente las siguientes N transacciones pendientes
+     * FASE 2: Llama a la API de IA.
+     *
+     * Fix B1: sin @Transactional → la conexión del pool se libera antes de
+     * la llamada HTTP, que puede tardar 10-30 segundos.
+     * Fix B4: el mensaje de excepción NO se expone al cliente; solo va al log.
      */
-    @Transactional
-    public BatchResultDto processNextBatch(int limit) {
-        int size = Math.min(limit, MAX_BATCH_SIZE);
-        List<Long> pendingIds = transactionRepository.findPendingPredictionIds(PageRequest.of(0, size));
-        return processBatch(pendingIds);
+    private BatchApiResponseDto callBatchApi(BatchLoad loaded,
+            List<BatchItemResultDto> results) {
+        try {
+            return fraudApiClient.predictFraudBatch(loaded.apiRequests());
+        } catch (Exception e) {
+            // B4: log con detalle completo, mensaje genérico al cliente
+            log.error("Error en llamada batch a API de IA. " +
+                    "Transacciones afectadas: {}. Causa: {}",
+                    loaded.transactionsMap().keySet(), e.getMessage(), e);
+
+            // Fix B6 (documentado): solo las IDs que llegaron al map se marcan aquí;
+            // las que fallaron antes (no encontradas, ya predichas) ya están en results.
+            for (Long id : loaded.transactionsMap().keySet()) {
+                results.add(errorItem(id, "Error al contactar el servicio de análisis de fraude"));
+            }
+            return null;
+        }
     }
 
-    // ================== MÉTODOS PRIVADOS ==================
+    /**
+     * FASE 3: Persiste las predicciones recibidas de la API.
+     * Transacción corta, independiente de la fase de carga.
+     */
+    @Transactional
+    protected void savePredictions(BatchApiResponseDto batchResponse,
+            Map<Long, OperationalTransactions> transactionsMap,
+            Map<String, Long> transNumToIdMap,
+            List<BatchItemResultDto> results) {
+        for (FraudPredictionResponseDto apiResponse : batchResponse.getResults()) {
+            Long id = transNumToIdMap.get(apiResponse.getTransactionId());
+            OperationalTransactions tx = transactionsMap.get(id);
+
+            boolean valid = tx != null
+                    && apiResponse.getVeredicto() != null
+                    && !"ERROR".equals(apiResponse.getVeredicto());
+
+            if (valid) {
+                predictionMapper.savePrediction(tx, apiResponse, FraudConstants.SCENARIO_BATCH);
+                results.add(BatchItemResultDto.builder()
+                        .idTransaction(id)
+                        .transNum(tx.getTransNum())
+                        .amt(tx.getAmt().doubleValue())
+                        .veredicto(apiResponse.getVeredicto())
+                        .score(apiResponse.getScoreFinal())
+                        .status("success") // El frontend verifica r.status === 'success'
+                        .build());
+            } else {
+                String msg = (apiResponse.getError() != null && !apiResponse.getError().isBlank())
+                        ? apiResponse.getError()
+                        : "Error en predicción individual";
+                results.add(errorItem(id, msg));
+            }
+        }
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    private BatchResultDto buildSummary(List<BatchItemResultDto> results) {
+        long frauds = results.stream()
+                .filter(r -> "success".equals(r.getStatus())
+                        && FraudConstants.VEREDICTO_ALTO_RIESGO.equals(r.getVeredicto()))
+                .count();
+        long legit = results.stream()
+                .filter(r -> "success".equals(r.getStatus())
+                        && !FraudConstants.VEREDICTO_ALTO_RIESGO.equals(r.getVeredicto()))
+                .count();
+        long errors = results.stream()
+                .filter(r -> !"success".equals(r.getStatus()))
+                .count();
+        log.info("Batch completado: procesadas={}, fraudes={}, legítimas={}, errores={}",
+                results.size(), frauds, legit, errors);
+        return BatchResultDto.builder()
+                .totalProcessed(results.size())
+                .totalFrauds((int) frauds)
+                .totalLegitimate((int) legit)
+                .totalErrors((int) errors)
+                .results(results)
+                .build();
+    }
 
     private PendingTransactionDto mapToPendingDto(OperationalTransactions t) {
         CreditCards cc = t.getCreditCard();
@@ -200,81 +308,34 @@ public class BatchPredictionService {
                 .amt(t.getAmt() != null ? t.getAmt().doubleValue() : null)
                 .category(t.getCategoryName())
                 .merchant(t.getMerchant())
-                .customerName(customer != null ? customer.getFirstName() + " " + customer.getSurname() : null)
+                .customerName(customer != null
+                        ? customer.getFirstName() + " " + customer.getSurname()
+                        : null)
                 .ccNumMasked(ccNumMasked)
                 .build();
     }
 
-    private FraudPredictionRequestDto buildApiRequest(OperationalTransactions transaction) {
-        CreditCards cc = transaction.getCreditCard();
-        Customer customer = cc != null ? cc.getCustomer() : null;
-        Localization location = customer != null ? customer.getLocalization() : null;
-        Gender gender = customer != null ? customer.getGender() : null;
-
-        return FraudPredictionRequestDto.builder()
-                .transactionId(transaction.getTransNum())
-                .idCliente(customer != null ? customer.getIdCustomer().toString() : "0")
-                .transDateTransTime(transaction.getTransDateTime() != null
-                        ? transaction.getTransDateTime().format(DATE_TIME_FORMATTER)
-                        : LocalDateTime.now().format(DATE_TIME_FORMATTER))
-                .amt(transaction.getAmt() != null ? transaction.getAmt().doubleValue() : 0.0)
-                .category(transaction.getCategoryName())
-                .gender(gender != null ? extractGenderCode(gender) : "M")
-                .job(customer != null && customer.getJob() != null ? customer.getJob() : "Unknown")
-                .cityPop(location != null ? location.getCityPop() : 0)
-                .dob(customer != null && customer.getDob() != null
-                        ? customer.getDob().format(DATE_FORMATTER)
-                        : "1990-01-01")
-                .lat(location != null ? location.getCustomerLat() : 0.0)
-                .lng(location != null ? location.getCustomerLong() : 0.0)
-                .merchLat(transaction.getMerchLat() != null ? transaction.getMerchLat() : 0.0)
-                .merchLong(transaction.getMerchLong() != null ? transaction.getMerchLong() : 0.0)
+    private static BatchItemResultDto errorItem(Long id, String message) {
+        return BatchItemResultDto.builder()
+                .idTransaction(id)
+                .status("error")
+                .errorMessage(message)
                 .build();
     }
 
-    private String extractGenderCode(Gender gender) {
-        String genderDesc = gender.getGenderDescription();
-        if (genderDesc != null) {
-            genderDesc = genderDesc.toLowerCase();
-            if (genderDesc.contains("female") || genderDesc.contains("femenino") || genderDesc.startsWith("f")) {
-                return "F";
-            }
-        }
-        return "M";
-    }
+    // ─── Tipos auxiliares ─────────────────────────────────────────────────────
 
-    private void savePrediction(OperationalTransactions transaction, FraudPredictionResponseDto response) {
-        FraudPredictions prediction = new FraudPredictions();
-        prediction.setTransaction(transaction);
-        prediction.setVeredicto(response.getVeredicto());
-        prediction.setPredictionDate(LocalDateTime.now());
-
-        Map<String, Object> auditData = response.getDatosAuditoria();
-        if (auditData != null) {
-            if (auditData.get("xgboost_score") != null) {
-                prediction.setXgboostScore(((Number) auditData.get("xgboost_score")).floatValue());
-            }
-            if (auditData.get("iforest_score") != null) {
-                prediction.setIfforestScore(((Number) auditData.get("iforest_score")).floatValue());
-            }
-        }
-
-        prediction.setFinalDecision("ALTO RIESGO".equals(response.getVeredicto()) ? 1 : 0);
-        prediction.setDetectionScenario(2); // Procesamiento por lotes
-
-        if (response.getDetallesRiesgo() != null) {
-            for (RiskFactorDto riskFactor : response.getDetallesRiesgo()) {
-                PredictionDetails detail = new PredictionDetails();
-                detail.setFraudPrediction(prediction);
-                detail.setFeatureName(riskFactor.getFeatureName());
-                detail.setFeatureValue(riskFactor.getFeatureValue());
-                detail.setShapValue(riskFactor.getShapValue());
-                detail.setRiskDescription(riskFactor.getRiskDescription());
-                detail.setImpactDirection(riskFactor.getImpactDirection());
-                prediction.getDetails().add(detail);
-            }
-        }
-
-        fraudPredictionRepository.save(prediction);
+    /**
+     * Resultado de FASE 1: agrupa en un solo objeto todo lo necesario para
+     * las fases 2 y 3 sin usar tipos anónimos ni Object[].
+     *
+     * Fix B6 (documentado): transactionsMap contiene SOLO las transacciones
+     * que superaron los filtros (existencia + sin predicción previa). Las que
+     * fallaron antes ya están anotadas en results con su estado correcto.
+     */
+    private record BatchLoad(
+            Map<Long, OperationalTransactions> transactionsMap,
+            List<FraudPredictionRequestDto> apiRequests,
+            Map<String, Long> transNumToIdMap) {
     }
 }

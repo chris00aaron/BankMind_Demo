@@ -1,6 +1,6 @@
 package com.naal.bankmind.controller.Fraud;
 
-import com.naal.bankmind.entity.Category;
+import com.naal.bankmind.entity.Fraud.Category;
 import com.naal.bankmind.repository.Fraud.CategoryRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

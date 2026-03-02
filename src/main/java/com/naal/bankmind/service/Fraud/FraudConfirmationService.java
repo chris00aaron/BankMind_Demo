@@ -1,7 +1,7 @@
 package com.naal.bankmind.service.Fraud;
 
-import com.naal.bankmind.entity.FraudConfirmationToken;
-import com.naal.bankmind.entity.OperationalTransactions;
+import com.naal.bankmind.entity.Fraud.FraudConfirmationToken;
+import com.naal.bankmind.entity.Fraud.OperationalTransactions;
 import com.naal.bankmind.repository.Fraud.FraudConfirmationTokenRepository;
 import com.naal.bankmind.repository.Fraud.TransactionRepository;
 import lombok.extern.slf4j.Slf4j;

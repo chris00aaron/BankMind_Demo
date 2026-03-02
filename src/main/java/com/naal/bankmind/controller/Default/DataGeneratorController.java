@@ -14,7 +14,7 @@ import java.util.Map;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/default")
+@RequestMapping("/api/morosidad/data-generator")
 @RequiredArgsConstructor
 public class DataGeneratorController {
 

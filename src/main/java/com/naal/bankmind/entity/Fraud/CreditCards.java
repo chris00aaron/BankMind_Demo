@@ -1,4 +1,6 @@
-package com.naal.bankmind.entity;
+package com.naal.bankmind.entity.Fraud;
+
+import com.naal.bankmind.entity.Customer;
 
 import jakarta.persistence.*;
 import lombok.Data;

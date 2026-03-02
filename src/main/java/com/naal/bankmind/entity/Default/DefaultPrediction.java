@@ -50,4 +50,7 @@ public class DefaultPrediction {
     @JoinColumn(name = "id_policy")
     private DefaultPolicies idPolicy;
 
+    @Column(name = "sbs_category_real", length = 50)
+    private String sbsCategoryReal;
+
 }

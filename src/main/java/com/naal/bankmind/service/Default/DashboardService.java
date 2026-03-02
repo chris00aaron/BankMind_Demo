@@ -4,7 +4,6 @@ import com.naal.bankmind.dto.Default.Response.DashboardMorosidadDTO;
 import com.naal.bankmind.dto.Default.Response.DashboardMorosidadDTO.*;
 import com.naal.bankmind.entity.Customer;
 import com.naal.bankmind.entity.MonthlyHistory;
-import com.naal.bankmind.entity.Default.DefaultPolicies;
 import com.naal.bankmind.entity.Default.DefaultPrediction;
 import com.naal.bankmind.entity.Default.TrainingHistory;
 import com.naal.bankmind.repository.Default.CustomerRepository;
@@ -16,9 +15,6 @@ import org.springframework.stereotype.Service;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -53,6 +49,7 @@ public class DashboardService {
         dashboard.setSegmentacionRiesgo(calcularSegmentacionRiesgo(latestPredictions));
         dashboard.setTendenciaMensual(calcularTendenciaMensualOptimizado());
         dashboard.setClientesAltoRiesgo(obtenerClientesAltoRiesgo(latestPredictions));
+        dashboard.setDistribucionSBS(calcularDistribucionSBS(latestPredictions));
 
         log.info("Dashboard calculado exitosamente");
         return dashboard;
@@ -204,35 +201,38 @@ public class DashboardService {
     }
 
     /**
-     * Segmentación por nivel de riesgo.
+     * Segmentación por clasificación SBS predicha.
      */
     private List<SegmentacionRiesgo> calcularSegmentacionRiesgo(List<DefaultPrediction> latestPredictions) {
         Map<String, Long> conteo = new LinkedHashMap<>();
         Map<String, Double> dinero = new LinkedHashMap<>();
 
-        conteo.put("Crítico", 0L);
-        conteo.put("Alto", 0L);
-        conteo.put("Medio", 0L);
-        conteo.put("Bajo", 0L);
-        dinero.put("Crítico", 0.0);
-        dinero.put("Alto", 0.0);
-        dinero.put("Medio", 0.0);
-        dinero.put("Bajo", 0.0);
+        conteo.put("Normal", 0L);
+        conteo.put("CPP", 0L);
+        conteo.put("Deficiente", 0L);
+        conteo.put("Dudoso", 0L);
+        conteo.put("Pérdida", 0L);
+        dinero.put("Normal", 0.0);
+        dinero.put("CPP", 0.0);
+        dinero.put("Deficiente", 0.0);
+        dinero.put("Dudoso", 0.0);
+        dinero.put("Pérdida", 0.0);
 
         for (DefaultPrediction pred : latestPredictions) {
             if (pred.getDefaultProbability() == null)
                 continue;
-            double probPago = (1.0 - pred.getDefaultProbability().doubleValue()) * 100;
-            String nivel = calcularNivelRiesgo(probPago);
+            String cat = pred.getDefaultCategory();
+            if (cat == null || cat.isBlank())
+                cat = "Sin clasificar";
             double loss = pred.getEstimatedLoss() != null ? pred.getEstimatedLoss().doubleValue() : 0.0;
 
-            conteo.merge(nivel, 1L, Long::sum);
-            dinero.merge(nivel, loss, Double::sum);
+            conteo.merge(cat, 1L, Long::sum);
+            dinero.merge(cat, loss, Double::sum);
         }
 
         List<SegmentacionRiesgo> result = new ArrayList<>();
-        for (String nivel : conteo.keySet()) {
-            result.add(new SegmentacionRiesgo(nivel, conteo.get(nivel), dinero.get(nivel)));
+        for (String cat : conteo.keySet()) {
+            result.add(new SegmentacionRiesgo(cat, conteo.get(cat), dinero.get(cat)));
         }
         return result;
     }
@@ -348,7 +348,8 @@ public class DashboardService {
                 Long recordId = mh.getAccountDetails().getRecordId();
 
                 double probPago = (1.0 - pred.getDefaultProbability().doubleValue()) * 100;
-                String nivelRiesgo = calcularNivelRiesgo(probPago);
+                String clasificacionSBS = pred.getDefaultCategory() != null ? pred.getDefaultCategory()
+                        : "Sin clasificar";
 
                 String nombre = (customer.getFirstName() != null ? customer.getFirstName() : "") + " " +
                         (customer.getSurname() != null ? customer.getSurname() : "");
@@ -357,7 +358,7 @@ public class DashboardService {
                         recordId, // ID de la cuenta (recordId)
                         nombre.trim(),
                         Math.round(probPago * 10.0) / 10.0,
-                        nivelRiesgo,
+                        clasificacionSBS,
                         mh.getBillAmtX() != null ? mh.getBillAmtX().doubleValue() : 0.0,
                         cuotasPorCuenta.getOrDefault(recordId, 0)));
             } catch (Exception e) {
@@ -402,13 +403,28 @@ public class DashboardService {
         return map;
     }
 
-    private String calcularNivelRiesgo(double probabilidadPago) {
-        if (probabilidadPago < 25)
-            return "Crítico";
-        if (probabilidadPago < 50)
-            return "Alto";
-        if (probabilidadPago < 75)
-            return "Medio";
-        return "Bajo";
+    // calcularNivelRiesgo eliminado — se usa clasificaciónSBS unificada
+
+    /**
+     * Distribución por categoría SBS predicha.
+     */
+    private List<DistribucionSBS> calcularDistribucionSBS(List<DefaultPrediction> latestPredictions) {
+        Map<String, Long> conteo = new LinkedHashMap<>();
+        conteo.put("Normal", 0L);
+        conteo.put("CPP", 0L);
+        conteo.put("Deficiente", 0L);
+        conteo.put("Dudoso", 0L);
+        conteo.put("Pérdida", 0L);
+
+        for (DefaultPrediction pred : latestPredictions) {
+            String cat = pred.getDefaultCategory();
+            if (cat == null || cat.isBlank())
+                cat = "Sin clasificar";
+            conteo.merge(cat, 1L, Long::sum);
+        }
+
+        return conteo.entrySet().stream()
+                .map(e -> new DistribucionSBS(e.getKey(), e.getValue()))
+                .collect(Collectors.toList());
     }
 }

@@ -1,6 +1,7 @@
 package com.naal.bankmind.repository.Default;
 
 import com.naal.bankmind.entity.MonthlyHistory;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -43,4 +44,11 @@ public interface MonthlyHistoryRepository extends JpaRepository<MonthlyHistory, 
      */
     @Query("SELECT mh FROM MonthlyHistory mh WHERE mh.accountDetails.recordId IN :recordIds ORDER BY mh.accountDetails.recordId, mh.monthlyPeriod DESC")
     List<MonthlyHistory> findAllByRecordIds(@Param("recordIds") List<Long> recordIds);
+
+    /**
+     * Obtiene los últimos N meses de historial de pago para una cuenta.
+     * Usar con PageRequest.of(0, 10) para limitar a 10 meses.
+     */
+    @Query("SELECT mh FROM MonthlyHistory mh WHERE mh.accountDetails.recordId = :recordId ORDER BY mh.monthlyPeriod DESC")
+    List<MonthlyHistory> findRecentByRecordId(@Param("recordId") Long recordId, Pageable pageable);
 }

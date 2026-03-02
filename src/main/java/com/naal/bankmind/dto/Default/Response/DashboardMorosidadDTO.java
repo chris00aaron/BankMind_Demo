@@ -19,6 +19,7 @@ public class DashboardMorosidadDTO {
     private List<SegmentacionRiesgo> segmentacionRiesgo;
     private List<TendenciaMensual> tendenciaMensual;
     private List<ClienteAltoRiesgo> clientesAltoRiesgo;
+    private List<DistribucionSBS> distribucionSBS;
 
     @Data
     @NoArgsConstructor
@@ -73,8 +74,16 @@ public class DashboardMorosidadDTO {
         private Long recordId; // ID de la cuenta (record_id)
         private String nombre;
         private double probabilidadPago;
-        private String nivelRiesgo;
+        private String clasificacionSBS;
         private double montoCuota;
         private int cuotasAtrasadas;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DistribucionSBS {
+        private String categoria;
+        private long cantidad;
     }
 }

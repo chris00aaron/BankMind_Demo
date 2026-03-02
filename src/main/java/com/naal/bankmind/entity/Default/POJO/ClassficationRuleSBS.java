@@ -18,5 +18,7 @@ public class ClassficationRuleSBS implements Serializable {
         {"categoria": "Dudoso", "min": 0.3000001, "max": 0.60, "provision": 0.60},
         {"categoria": "Pérdida", "min": 0.6000001, "max": 1.0, "provision": 1.0}
     ]'::jsonb
+
+    REVISAR
     */
 }

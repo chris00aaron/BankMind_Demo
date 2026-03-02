@@ -8,40 +8,39 @@ import java.util.List;
  * detalle.
  */
 public record ClientePredictionDetailDTO(
-        // Datos del cliente
-        Long idCustomer,
-        String nombre,
-        Integer edad,
-        String educacion,
-        String estadoCivil,
-        String fechaRegistro,
+                // Datos del cliente
+                Long idCustomer,
+                String nombre,
+                Integer edad,
+                String educacion,
+                String estadoCivil,
+                String fechaRegistro,
 
-        // Datos de la cuenta
-        Long recordId,
-        BigDecimal limitBal,
-        BigDecimal balance,
-        BigDecimal estimatedSalary,
-        Integer tenure,
+                // Datos de la cuenta
+                Long recordId,
+                BigDecimal limitBal,
+                BigDecimal balance,
+                BigDecimal estimatedSalary,
+                Integer tenure,
 
-        // Datos calculados del historial
-        Integer antiguedadMeses,
-        Integer cuotasAtrasadas,
-        Double historialPagos,
-        BigDecimal ultimaCuota,
-        String ultimoPago,
+                // Datos calculados del historial
+                Integer antiguedadMeses,
+                Integer cuotasAtrasadas,
+                Double historialPagos,
+                BigDecimal ultimaCuota,
+                String ultimoPago,
 
-        // Predicción
-        Boolean defaultPayment,
-        Double probabilidadPago,
-        String nivelRiesgo,
-        String mainRiskFactor,
-        List<RiskFactorDTO> riskFactors, // Top 5 factores SHAP
-        String modelVersion,
-        BigDecimal estimatedLoss,
+                // Predicción
+                Boolean defaultPayment,
+                Double probabilidadPago,
+                String mainRiskFactor,
+                List<RiskFactorDTO> riskFactors, // Top 5 factores SHAP
+                String modelVersion,
+                BigDecimal estimatedLoss,
 
-        // Nuevos campos de clasificación y comparación
-        String clasificacionSBS, // Normal, CPP, Deficiente, Dudoso, Pérdida
-        Integer percentilRiesgo, // Posición relativa vs cartera (0-100)
-        Double umbralPolitica // Umbral de la política activa (ej: 50.0)
+                // Clasificación SBS y comparación
+                String clasificacionSBS, // Normal, CPP, Deficiente, Dudoso, Pérdida
+                Integer percentilRiesgo, // Posición relativa vs cartera (0-100)
+                Double umbralPolitica // Umbral de la política activa (ej: 50.0)
 ) {
 }

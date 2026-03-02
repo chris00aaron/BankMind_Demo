@@ -7,6 +7,7 @@ import com.naal.bankmind.entity.Default.TrainingHistory;
 import com.naal.bankmind.repository.Default.ModelMonitoringLogRepository;
 import com.naal.bankmind.repository.Default.ProductionModelDefaultRepository;
 import com.naal.bankmind.repository.Default.TrainingHistoryRepository;
+import com.naal.bankmind.service.Default.MonitoringService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +26,7 @@ import java.util.*;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/model")
+@RequestMapping("/api/morosidad/model-monitoring")
 @RequiredArgsConstructor
 public class ModelMonitoringController {
 
@@ -33,6 +34,7 @@ public class ModelMonitoringController {
     private final ModelMonitoringLogRepository monitoringLogRepository;
     private final TrainingHistoryRepository trainingHistoryRepository;
     private final MorosidadFeignClient morosidadFeignClient;
+    private final MonitoringService monitoringService;
 
     // ═══════════════════════════════════════════
     // 1. MODELO EN PRODUCCIÓN
@@ -197,5 +199,29 @@ public class ModelMonitoringController {
         }
 
         return ResponseEntity.ok(result);
+    }
+
+    // ═══════════════════════════════════════════
+    // 6. EJECUCIÓN MANUAL DE ANÁLISIS PSI
+    // ═══════════════════════════════════════════
+
+    /**
+     * Ejecuta manualmente el análisis PSI de data drift.
+     * POST /api/morosidad/model-monitoring/trigger-drift
+     */
+    @PostMapping("/trigger-drift")
+    public ResponseEntity<Map<String, String>> triggerDriftAnalysis() {
+        log.info("🔬 Ejecución manual de análisis PSI solicitada");
+        try {
+            monitoringService.checkDailyDrift();
+            return ResponseEntity.ok(Map.of(
+                    "status", "completed",
+                    "message", "Análisis PSI ejecutado correctamente"));
+        } catch (Exception e) {
+            log.error("❌ Error en análisis PSI manual: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "status", "error",
+                    "message", "Error al ejecutar análisis PSI: " + e.getMessage()));
+        }
     }
 }

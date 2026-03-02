@@ -25,4 +25,14 @@ public class CampaignLog {
 
     @Column(name = "budget_allocated")
     private BigDecimal budgetAllocated;
+
+    // FK to retention_strategy_def (already exists in DB)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_strategy", referencedColumnName = "id_strategy")
+    private RetentionStrategyDef strategy;
+
+    // FK to retention_segment_def (already exists in DB)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_segment", referencedColumnName = "id_segment")
+    private RetentionSegmentDef segment;
 }

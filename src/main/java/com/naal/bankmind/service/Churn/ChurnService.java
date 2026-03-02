@@ -1,5 +1,6 @@
 package com.naal.bankmind.service.Churn;
 
+import com.naal.bankmind.dto.Churn.CampaignLogDTO;
 import com.naal.bankmind.dto.Churn.ChurnRequestDTO;
 import com.naal.bankmind.dto.Churn.ChurnResponseDTO;
 import com.naal.bankmind.dto.Churn.CustomerDashboardDTO;
@@ -8,6 +9,7 @@ import com.naal.bankmind.dto.Churn.TrainResultDTO;
 import com.naal.bankmind.dto.Churn.PerformanceStatusDTO;
 import com.naal.bankmind.entity.AccountDetails;
 import com.naal.bankmind.entity.ChurnPredictions;
+import com.naal.bankmind.entity.ChurnTrainingHistory;
 import com.naal.bankmind.entity.Customer;
 import com.naal.bankmind.repository.Default.AccountDetailsRepository;
 import com.naal.bankmind.repository.Default.CustomerRepository;
@@ -16,6 +18,7 @@ import com.naal.bankmind.repository.Churn.RetentionStrategyDefRepository;
 import com.naal.bankmind.repository.Churn.RetentionSegmentDefRepository;
 import com.naal.bankmind.repository.Churn.CampaignLogRepository;
 import com.naal.bankmind.repository.Churn.CampaignTargetRepository;
+import com.naal.bankmind.repository.Churn.ChurnTrainingHistoryRepository;
 import com.naal.bankmind.entity.RetentionStrategyDef;
 import com.naal.bankmind.entity.RetentionSegmentDef;
 import com.naal.bankmind.entity.CampaignLog;
@@ -64,6 +67,7 @@ public class ChurnService {
     private final RetentionSegmentDefRepository retentionSegmentDefRepository;
     private final CampaignLogRepository campaignLogRepository;
     private final CampaignTargetRepository campaignTargetRepository;
+    private final ChurnTrainingHistoryRepository churnTrainingHistoryRepository;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -77,7 +81,8 @@ public class ChurnService {
             RetentionStrategyDefRepository retentionStrategyDefRepository,
             RetentionSegmentDefRepository retentionSegmentDefRepository,
             CampaignLogRepository campaignLogRepository,
-            CampaignTargetRepository campaignTargetRepository) {
+            CampaignTargetRepository campaignTargetRepository,
+            ChurnTrainingHistoryRepository churnTrainingHistoryRepository) {
         this.customerRepository = customerRepository;
         this.accountDetailsRepository = accountDetailsRepository;
         this.churnPredictionsRepository = churnPredictionsRepository;
@@ -85,7 +90,12 @@ public class ChurnService {
         this.retentionSegmentDefRepository = retentionSegmentDefRepository;
         this.campaignLogRepository = campaignLogRepository;
         this.campaignTargetRepository = campaignTargetRepository;
-        this.restTemplate = new RestTemplate();
+        this.churnTrainingHistoryRepository = churnTrainingHistoryRepository;
+        // M7: RestTemplate with timeouts to prevent indefinite blocking
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5000); // 5 seconds to connect
+        factory.setReadTimeout(120000); // 2 minutes to read (training can be slow)
+        this.restTemplate = new RestTemplate(factory);
     }
 
     /**
@@ -249,20 +259,24 @@ public class ChurnService {
      * Uses batch queries to compute aggregated stats + Top 200 scatter data.
      */
     private com.naal.bankmind.dto.Churn.DashboardKpisDTO calculateDashboardKpis(String search) {
-        // Get ALL customer IDs (filtered by search if applicable) for global KPIs
+        // ── Real total count from DB (no page cap) ──────────────────────────
+        long totalCustomers;
         List<Customer> allCustomers;
+
         if (search != null && !search.trim().isEmpty()) {
             allCustomers = customerRepository.searchByNameOrId(search.trim());
+            totalCustomers = allCustomers.size();
         } else {
-            // Use a reasonable limit for KPI calculation
-            org.springframework.data.domain.Pageable kpiLimit = org.springframework.data.domain.PageRequest.of(0,
-                    10000);
+            // Exact total from DB — not capped by any page size
+            totalCustomers = customerRepository.count();
+            // Load up to 2000 customers for risk/scatter calculation
+            org.springframework.data.domain.Pageable kpiLimit = org.springframework.data.domain.PageRequest.of(0, 2000);
             allCustomers = customerRepository.findAll(kpiLimit).getContent();
         }
 
         List<Long> allIds = allCustomers.stream().map(Customer::getIdCustomer).collect(Collectors.toList());
 
-        // Batch load accounts and predictions for ALL customers
+        // Batch load accounts and predictions for the sample customers
         Map<Long, AccountDetails> allAccounts = new java.util.HashMap<>();
         Map<Long, ChurnPredictions> allPredictions = new java.util.HashMap<>();
 
@@ -275,7 +289,6 @@ public class ChurnService {
             }
         }
 
-        long totalCustomers = allCustomers.size();
         long customersAtRisk = 0;
         BigDecimal capitalAtRisk = BigDecimal.ZERO;
         long highRiskCount = 0;
@@ -289,13 +302,17 @@ public class ChurnService {
             AccountDetails acc = allAccounts.get(c.getIdCustomer());
             ChurnPredictions pred = allPredictions.get(c.getIdCustomer());
 
-            BigDecimal balance = (acc != null && acc.getBalance() != null) ? acc.getBalance() : BigDecimal.ZERO;
-            int risk = 50; // default
-            if (pred != null && pred.getChurnProbability() != null) {
+            boolean hasAccount = acc != null && acc.getBalance() != null
+                    && acc.getBalance().compareTo(BigDecimal.ZERO) > 0;
+            boolean hasPrediction = pred != null && pred.getChurnProbability() != null;
+
+            BigDecimal balance = hasAccount ? acc.getBalance() : BigDecimal.ZERO;
+            int risk = 50; // default cuando no hay predicción
+            if (hasPrediction) {
                 risk = pred.getChurnProbability().multiply(BigDecimal.valueOf(100)).intValue();
             }
 
-            // Risk distribution counting
+            // Risk distribution counting (todos los clientes, con o sin cuenta)
             if (risk > 70) {
                 highRiskCount++;
             } else if (risk >= 50) {
@@ -311,10 +328,14 @@ public class ChurnService {
                                 java.math.RoundingMode.HALF_UP));
             }
 
+            // Solo agregar al scatter si el cliente tiene cuenta con balance > 0
+            // o si tiene una predicción real — evita colapsar todos en (50, 0)
+            if (!hasAccount && !hasPrediction)
+                continue;
+
             String name = ((c.getFirstName() != null ? c.getFirstName() : "") + " "
                     + (c.getSurname() != null ? c.getSurname() : "")).trim();
 
-            // Country name for enriched tooltip
             String countryName = "Desconocido";
             if (c.getCountry() != null && c.getCountry().getCountryDescription() != null) {
                 countryName = c.getCountry().getCountryDescription();
@@ -650,14 +671,34 @@ public class ChurnService {
 
     /**
      * Calculates geography statistics based on real customer data.
-     * LIMITED to first 500 customers to avoid N+1 performance issues.
+     * Uses batch queries to eliminate N+1 performance issues.
+     * Previously: ~1,000 queries for 500 customers. Now: 3 queries total.
      */
     public List<com.naal.bankmind.dto.Churn.GeographyStatsDTO> getGeographyStats() {
-        // Use pagination to limit results and avoid N+1 query timeout
+        // Load up to 500 customers
         org.springframework.data.domain.Pageable limit = org.springframework.data.domain.PageRequest.of(0, 500);
         List<Customer> customers = customerRepository.findAll(limit).getContent();
 
-        // Group by Country Name
+        if (customers.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // ── BATCH QUERIES: 2 queries instead of N*2 ─────────────────────────
+        List<Long> allIds = customers.stream()
+                .map(Customer::getIdCustomer)
+                .collect(Collectors.toList());
+
+        Map<Long, AccountDetails> accountMap = new java.util.HashMap<>();
+        for (AccountDetails ad : accountDetailsRepository.findByCustomerIds(allIds)) {
+            accountMap.putIfAbsent(ad.getCustomer().getIdCustomer(), ad);
+        }
+
+        Map<Long, ChurnPredictions> predictionMap = new java.util.HashMap<>();
+        for (ChurnPredictions cp : churnPredictionsRepository.findLatestByCustomerIds(allIds)) {
+            predictionMap.putIfAbsent(cp.getCustomer().getIdCustomer(), cp);
+        }
+
+        // ── GROUP BY COUNTRY ─────────────────────────────────────────────────
         java.util.Map<String, List<Customer>> customersByCountry = customers.stream()
                 .collect(java.util.stream.Collectors
                         .groupingBy(c -> (c.getCountry() != null && c.getCountry().getCountryDescription() != null)
@@ -671,38 +712,29 @@ public class ChurnService {
             List<Customer> countryCustomers = entry.getValue();
 
             int total = countryCustomers.size();
-            int high = 0;
-            int medium = 0;
-            int low = 0;
+            int high = 0, medium = 0, low = 0;
             BigDecimal totalBalance = BigDecimal.ZERO;
-            int churnCount = 0; // Using risk > 50% as proxy for potential churn if isChurn is null
+            int churnCount = 0;
 
+            // ── USE PRE-LOADED MAPS (no additional queries) ──────────────────
             for (Customer c : countryCustomers) {
-                // Get latest prediction for risk
-                List<ChurnPredictions> predictions = churnPredictionsRepository
-                        .findByCustomer_IdCustomerOrderByPredictionDateDesc(c.getIdCustomer());
+                AccountDetails acc = accountMap.get(c.getIdCustomer());
+                ChurnPredictions pred = predictionMap.get(c.getIdCustomer());
 
-                // Get balance
-                Optional<AccountDetails> accountOpt = accountDetailsRepository
-                        .findFirstByCustomer_IdCustomer(c.getIdCustomer());
-                if (accountOpt.isPresent() && accountOpt.get().getBalance() != null) {
-                    totalBalance = totalBalance.add(accountOpt.get().getBalance());
+                if (acc != null && acc.getBalance() != null) {
+                    totalBalance = totalBalance.add(acc.getBalance());
                 }
 
-                double riskVal = 0.50; // Default
-                if (!predictions.isEmpty()) {
-                    ChurnPredictions p = predictions.get(0);
-                    if (p.getChurnProbability() != null) {
-                        riskVal = p.getChurnProbability().doubleValue();
+                double riskVal = 0.50; // Default when no prediction exists
+                if (pred != null) {
+                    if (pred.getChurnProbability() != null) {
+                        riskVal = pred.getChurnProbability().doubleValue();
                     }
-                    if (p.getIsChurn() != null && p.getIsChurn()) {
-                        churnCount++; // Or use risk > threshold
+                    if (Boolean.TRUE.equals(pred.getIsChurn())) {
+                        churnCount++;
                     } else if (riskVal > 0.5) {
-                        churnCount++; // Proxy
+                        churnCount++; // Proxy via probability
                     }
-                } else {
-                    // Start with mock logic for demo if no prediction exists
-                    // Or just treat as low risk
                 }
 
                 if (riskVal > 0.7)
@@ -721,7 +753,7 @@ public class ChurnService {
                     ? BigDecimal.valueOf((double) churnCount * 100 / total)
                     : BigDecimal.ZERO;
 
-            // Map codes/flags
+            // Map country codes and flags
             String code = "UN";
             String flag = "🏳️";
             if (countryName.equalsIgnoreCase("France") || countryName.equalsIgnoreCase("Francia")) {
@@ -730,8 +762,7 @@ public class ChurnService {
             } else if (countryName.equalsIgnoreCase("Germany") || countryName.equalsIgnoreCase("Alemania")) {
                 code = "DE";
                 flag = "🇩🇪";
-            } else if (countryName.equalsIgnoreCase("Spain") || countryName.equalsIgnoreCase("España")
-                    || countryName.equalsIgnoreCase("Spain")) {
+            } else if (countryName.equalsIgnoreCase("Spain") || countryName.equalsIgnoreCase("España")) {
                 code = "ES";
                 flag = "🇪🇸";
             }
@@ -754,13 +785,13 @@ public class ChurnService {
 
     /**
      * Gets MLOps metrics.
-     * Uses real metrics from the latest training run if available.
-     * Falls back to static defaults if no training has occurred in this session.
+     * Priority: 1) In-memory cache from latest training, 2) DB
+     * (churn_training_history), 3) static defaults.
      */
     public com.naal.bankmind.dto.Churn.MLOpsMetricsDTO getMLOpsMetrics() {
         long totalPredictions = churnPredictionsRepository.count();
 
-        // Use cached metrics from last training if available
+        // Priority 1: Use cached metrics from last training run (in this JVM session)
         if (lastTrainResult != null && lastTrainResult.getMetrics() != null) {
             TrainResultDTO.TrainMetrics m = lastTrainResult.getMetrics();
             return com.naal.bankmind.dto.Churn.MLOpsMetricsDTO.builder()
@@ -778,16 +809,120 @@ public class ChurnService {
                     .build();
         }
 
-        // Fallback: static defaults (no training has occurred yet)
+        // Priority 2: Read real metrics from churn_training_history table (M3 fix)
+        Optional<ChurnTrainingHistory> latestTraining = churnTrainingHistoryRepository
+                .findTopByOrderByTrainingDateDesc();
+        if (latestTraining.isPresent()) {
+            ChurnTrainingHistory h = latestTraining.get();
+            return com.naal.bankmind.dto.Churn.MLOpsMetricsDTO.builder()
+                    .modelStatus("Active")
+                    .modelVersion(h.getModelVersion() != null ? h.getModelVersion() : "v-db")
+                    .totalPredictions(totalPredictions)
+                    .lastTrainingDate(h.getTrainingDate() != null
+                            ? h.getTrainingDate().toLocalDate().toString()
+                            : java.time.LocalDate.now().toString())
+                    .precision(h.getPrecisionScore() != null ? h.getPrecisionScore() * 100 : 0.0)
+                    .recall(h.getRecallScore() != null ? h.getRecallScore() * 100 : 0.0)
+                    .f1Score(h.getF1Score() != null ? h.getF1Score() * 100 : 0.0)
+                    .aucRoc(h.getAucRoc() != null ? h.getAucRoc() * 100 : 0.0)
+                    .build();
+        }
+
+        // Priority 3: Static defaults (only if no training has EVER occurred)
         return com.naal.bankmind.dto.Churn.MLOpsMetricsDTO.builder()
-                .modelStatus("Active")
-                .modelVersion("v2.3.1")
+                .modelStatus("No Training Yet")
+                .modelVersion("none")
                 .totalPredictions(totalPredictions)
-                .lastTrainingDate(java.time.LocalDate.now().minusDays(2).toString())
-                .precision(91.5)
-                .recall(88.3)
-                .f1Score(89.8)
-                .aucRoc(94.2)
+                .lastTrainingDate("N/A")
+                .precision(0.0)
+                .recall(0.0)
+                .f1Score(0.0)
+                .aucRoc(0.0)
+                .build();
+    }
+
+    // ============================================================
+    // CAMPAIGN MANAGEMENT (M2 — Real Persistence)
+    // ============================================================
+
+    /**
+     * Gets all campaigns from the database, ordered by start date descending.
+     */
+    public List<CampaignLogDTO> getCampaigns() {
+        List<CampaignLog> campaigns = campaignLogRepository.findAll(
+                org.springframework.data.domain.Sort.by(
+                        org.springframework.data.domain.Sort.Direction.DESC, "startDate"));
+
+        return campaigns.stream().map(c -> CampaignLogDTO.builder()
+                .id(c.getIdCampaign())
+                .name(c.getName())
+                .segmentName(c.getSegment() != null ? c.getSegment().getName() : "Sin segmento")
+                .strategyName(c.getStrategy() != null ? c.getStrategy().getName() : "Sin estrategia")
+                .startDate(c.getStartDate() != null ? c.getStartDate().toLocalDate().toString() : "")
+                .status(c.getStatus())
+                .budgetAllocated(c.getBudgetAllocated() != null ? c.getBudgetAllocated().doubleValue() : 0.0)
+                .expectedRoi(0.0) // Calculated by frontend scenario engine
+                .targetedCount(0) // Can be expanded to count campaign_target entries
+                .convertedCount(0)
+                .build()).collect(Collectors.toList());
+    }
+
+    /**
+     * Creates a new campaign and persists it in the database.
+     * Also creates campaign_target entries for each target customer.
+     */
+    public CampaignLogDTO createCampaign(CampaignLogDTO req) {
+        CampaignLog campaign = new CampaignLog();
+        campaign.setName(req.getName());
+        campaign.setStatus("ACTIVE");
+        campaign.setStartDate(LocalDateTime.now());
+        campaign.setBudgetAllocated(req.getBudget() != null
+                ? BigDecimal.valueOf(req.getBudget())
+                : BigDecimal.ZERO);
+
+        // Set FK relationships
+        if (req.getStrategyId() != null) {
+            retentionStrategyDefRepository.findById(req.getStrategyId())
+                    .ifPresent(campaign::setStrategy);
+        }
+        if (req.getSegmentId() != null) {
+            retentionSegmentDefRepository.findById(req.getSegmentId())
+                    .ifPresent(campaign::setSegment);
+        }
+
+        campaign = campaignLogRepository.save(campaign);
+
+        // Create campaign_target entries for targeted customers
+        if (req.getTargets() != null && !req.getTargets().isEmpty()) {
+            for (Long customerId : req.getTargets()) {
+                try {
+                    CampaignTarget target = new CampaignTarget();
+                    CampaignTargetKey key = new CampaignTargetKey();
+                    key.setIdCampaign(campaign.getIdCampaign());
+                    key.setIdCustomer(customerId);
+                    target.setId(key);
+                    target.setStatus("PENDING");
+                    target.setContactDate(LocalDateTime.now());
+                    campaignTargetRepository.save(target);
+                } catch (Exception e) {
+                    System.err.println("Error adding target customer " + customerId + ": " + e.getMessage());
+                }
+            }
+        }
+
+        // Return DTO with resolved names
+        return CampaignLogDTO.builder()
+                .id(campaign.getIdCampaign())
+                .name(campaign.getName())
+                .segmentName(campaign.getSegment() != null ? campaign.getSegment().getName() : "Segmento Personalizado")
+                .strategyName(campaign.getStrategy() != null ? campaign.getStrategy().getName() : "Estrategia")
+                .startDate(campaign.getStartDate().toLocalDate().toString())
+                .status(campaign.getStatus())
+                .budgetAllocated(
+                        campaign.getBudgetAllocated() != null ? campaign.getBudgetAllocated().doubleValue() : 0.0)
+                .expectedRoi(req.getExpectedRoi() != null ? req.getExpectedRoi() : 0.0)
+                .targetedCount(req.getTargets() != null ? req.getTargets().size() : 0)
+                .convertedCount(0)
                 .build();
     }
 
@@ -835,6 +970,53 @@ public class ChurnService {
      */
     public List<RetentionStrategyDef> getAllStrategies() {
         return retentionStrategyDefRepository.findByIsActiveTrue();
+    }
+
+    /**
+     * Creates a new custom segment definition.
+     * Converts the DTO rules into a JSONB string and persists to DB.
+     *
+     * @param dto The segment definition with rules
+     * @return The created segment as DTO (with generated ID)
+     */
+    public SegmentDTO createSegment(SegmentDTO dto) {
+        RetentionSegmentDef entity = new RetentionSegmentDef();
+        entity.setName(dto.getName());
+        entity.setDescription(dto.getDescription());
+        entity.setCreatedAt(LocalDateTime.now());
+
+        // Convert rules list to JSON string for JSONB column
+        try {
+            if (dto.getRules() != null && !dto.getRules().isEmpty()) {
+                entity.setRulesJson(objectMapper.writeValueAsString(dto.getRules()));
+            } else {
+                entity.setRulesJson("[]");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error serializing segment rules to JSON: " + e.getMessage());
+        }
+
+        RetentionSegmentDef saved = retentionSegmentDefRepository.save(entity);
+
+        return SegmentDTO.builder()
+                .id(saved.getIdSegment())
+                .name(saved.getName())
+                .description(saved.getDescription())
+                .rules(dto.getRules())
+                .build();
+    }
+
+    /**
+     * Deletes a segment definition by ID.
+     *
+     * @param id The segment ID to delete
+     * @throws RuntimeException if segment not found
+     */
+    public void deleteSegment(Integer id) {
+        if (!retentionSegmentDefRepository.existsById(id)) {
+            throw new RuntimeException("Segment not found with ID: " + id);
+        }
+        retentionSegmentDefRepository.deleteById(id);
     }
 
     // ============================================================

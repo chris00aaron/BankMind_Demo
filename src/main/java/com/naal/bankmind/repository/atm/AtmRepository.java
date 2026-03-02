@@ -11,6 +11,5 @@ import com.naal.bankmind.entity.atm.Atm;
 
 @Repository
 public interface AtmRepository extends JpaRepository<Atm, Long> {
-
     List<Atm> findByActiveTrue();
 }

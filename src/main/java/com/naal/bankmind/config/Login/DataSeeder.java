@@ -27,7 +27,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DataSeeder implements CommandLineRunner {
+public class DataSeeder { //implements CommandLineRunner 
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
@@ -55,8 +55,8 @@ public class DataSeeder implements CommandLineRunner {
             new UserData("56789012", "Juan Martínez Vargas", "fuga@bankmind.com", "123456", "987654325",
                     "OPERARIO_FUGA_DEMANDA", false));
 
-    @Override
-    @Transactional
+    //@Override
+    //@Transactional
     public void run(String... args) {
         log.info("🚀 Iniciando carga de datos iniciales...");
 

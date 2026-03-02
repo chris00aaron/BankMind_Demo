@@ -4,6 +4,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.persistence.Column;
@@ -60,6 +63,10 @@ public class SyncLog {
 
     @Column(name = "source_system", nullable = false, length = 50)
     private String sourceSystem = "BANCO_CENTRAL";
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "process_log", columnDefinition = "jsonb")
+    private List<ProcessLogSync> processLog;
 
     @JsonManagedReference("syncLog-transactions")
     @OneToMany(mappedBy = "syncLog", fetch = FetchType.LAZY)

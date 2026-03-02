@@ -16,8 +16,10 @@ import com.naal.bankmind.dto.atm.response.RegistroAutoentrenamientoDetailsDTO;
 import com.naal.bankmind.service.atm.SelfTrainingAuditWithdrawalModelService;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @AllArgsConstructor
+@Slf4j
 
 @CrossOrigin(
     origins = "http://localhost:5173", 
@@ -41,6 +43,7 @@ public class SelfTrainingAuditWithdrawalModelController {
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<RegistroAutoentrenamientoDetailsDTO>> obtenerRegistroAutoentrenamiento(@PathVariable Long id) {
         RegistroAutoentrenamientoDetailsDTO registroAutoentrenamientoDetailsDTO = selfTrainingAuditWithdrawalModelService.obtenerModeloPorId(id);
+        log.info("Registro de autoentrenamiento: {}", registroAutoentrenamientoDetailsDTO);
         return ResponseEntity.ok(ApiResponse.success("Registro de autoentrenamiento", registroAutoentrenamientoDetailsDTO));
     }
 }

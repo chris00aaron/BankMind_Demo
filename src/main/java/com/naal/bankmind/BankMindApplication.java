@@ -17,5 +17,5 @@ public class BankMindApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(BankMindApplication.class, args);
 	}
-
+	
 }

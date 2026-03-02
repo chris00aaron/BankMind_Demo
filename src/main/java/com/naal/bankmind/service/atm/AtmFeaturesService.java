@@ -9,8 +9,6 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 import com.naal.bankmind.client.atm.WithdrawalFeignClient;
-import com.naal.bankmind.client.atm.dto.request.InputDataRetiroAtm;
-import com.naal.bankmind.client.atm.dto.response.OutputDataRetiroAtm;
 import com.naal.bankmind.dto.atm.projection.AtmAvgProjectionDTO;
 import com.naal.bankmind.dto.atm.projection.WithdrawalAvgProjectionDTO;
 import com.naal.bankmind.dto.atm.request.RetiroEfectivoAtmBasadoEnHistoricoRequestDTO;
@@ -56,7 +54,9 @@ public class AtmFeaturesService {
                 .obtenerPromedios(requestDTO.diaDelMesSolicitado(), requestDTO.mesSolicitado());
         Weather weather = weatherService.buscar(requestDTO.idWeather()).orElseThrow();
 
-        List<InputDataRetiroAtm> inputList = atmFeaturesAvg.stream()
+        /** 
+         * List<InputDataRetiroAtm> inputList = 
+        atmFeaturesAvg.stream()
                 .map(p -> {
                     InputDataRetiroAtm dto = new InputDataRetiroAtm();
 
@@ -120,7 +120,11 @@ public class AtmFeaturesService {
                 })
                 .collect(Collectors.toList());
 
+
         return new PrediccionDeRetirosDTO(outputListWithCI, retiroHistoricoDTOs, resumen);
+        */
+       
+        return null;
     }
 
     public List<WithdrawalAvgProjectionDTO> predecirBasadoEnHistorico(Short diaDelMes, Short mes) {

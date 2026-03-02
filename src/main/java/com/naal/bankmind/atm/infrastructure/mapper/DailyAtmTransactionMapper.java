@@ -1,13 +1,12 @@
-package com.naal.bankmind.mapper.atm;
+package com.naal.bankmind.atm.infrastructure.mapper;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.Map;
 
-import com.naal.bankmind.client.atm.dto.request.InputDataRetiroAtm;
+import com.naal.bankmind.atm.domain.model.InputDataPredictionRetiroAtm;
 import com.naal.bankmind.entity.atm.AtmFeatures;
 import com.naal.bankmind.entity.atm.DailyAtmTransaction;
-
 
 import lombok.experimental.UtilityClass;
 import lombok.extern.log4j.Log4j2;
@@ -16,10 +15,10 @@ import lombok.extern.log4j.Log4j2;
 @UtilityClass
 public class DailyAtmTransactionMapper {
 
-    public static InputDataRetiroAtm toAtmFeatures(DailyAtmTransaction transaction) {
+    public static InputDataPredictionRetiroAtm toInputDataPredictionRetiroAtm(DailyAtmTransaction transaction) {
         if (transaction == null) return null;
 
-        InputDataRetiroAtm dto = new InputDataRetiroAtm();
+        InputDataPredictionRetiroAtm dto = new InputDataPredictionRetiroAtm();
         
         // Navegación segura
         if (transaction.getAtm() != null) {
@@ -44,17 +43,17 @@ public class DailyAtmTransactionMapper {
 
         Map<String, Object> df = feature.getDynamicFeatures();
         if (df != null) {
-            dto.setTendencia_lags(toBigDecimal(df.get("tendencia_lags")));
+            dto.setTendenciaLags(toBigDecimal(df.get("tendencia_lags")));
             dto.setLag1(toBigDecimal(df.get("lag1")));
             dto.setLag5(toBigDecimal(df.get("lag5")));
             dto.setLag11(toBigDecimal(df.get("lag11")));
             
             // Cast seguro usando pattern matching de Java 16+
-            dto.setCaida_reciente(df.get("caida_reciente") instanceof Number n ? n.shortValue() : (short) 0);
-            dto.setRetiros_finde_anterior(toBigDecimal(df.get("retiros_finde_anterior")));
-            dto.setRetiros_domingo_anterior(toBigDecimal(df.get("retiros_domingo_anterior")));
-            dto.setRatio_finde_vs_semana(toBigDecimal(df.get("ratio_finde_vs_semana")));
-            dto.setDomingo_bajo(df.get("domingo_bajo") instanceof Number n ? n.shortValue() : (short) 0);
+            dto.setCaidaReciente(df.get("caida_reciente") instanceof Number n ? n.shortValue() : (short) 0);
+            dto.setRetirosFindeAnterior(toBigDecimal(df.get("retiros_finde_anterior")));
+            dto.setRetirosDomingoAnterior(toBigDecimal(df.get("retiros_domingo_anterior")));
+            dto.setRatioFindeVsSemana(toBigDecimal(df.get("ratio_finde_vs_semana")));
+            dto.setDomingoBajo(df.get("domingo_bajo") instanceof Number n ? n.shortValue() : (short) 0);
         }
         return dto;
     }

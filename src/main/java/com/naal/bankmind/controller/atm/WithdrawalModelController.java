@@ -7,9 +7,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.naal.bankmind.atm.domain.ports.in.ObtenerModeloActualEnProduccionUseCase;
 import com.naal.bankmind.dto.Shared.ApiResponse;
-import com.naal.bankmind.dto.atm.response.ModelProductionDTO;
-import com.naal.bankmind.service.atm.WithdrawalModelService;
+import com.naal.bankmind.atm.application.dto.response.ModelProductionDTO;
 
 import lombok.AllArgsConstructor;
 
@@ -25,10 +25,11 @@ import lombok.AllArgsConstructor;
 @RequestMapping("/atm/model")
 public class WithdrawalModelController {
 
-    private final WithdrawalModelService withdrawalModelService;
+    private final ObtenerModeloActualEnProduccionUseCase obtenerModeloActualEnProduccionUseCase;
 
     @GetMapping("/production")
     public ResponseEntity<ApiResponse<ModelProductionDTO>> modeloEnProduccion() {
-        return ResponseEntity.ok(ApiResponse.success("Modelo en produccion",withdrawalModelService.obtenerModeloEnProduccion()));
+        ModelProductionDTO modelProductionDTO = obtenerModeloActualEnProduccionUseCase.getModeloActualEnProduccion();
+        return ResponseEntity.ok(ApiResponse.success("Modelo en produccion", modelProductionDTO));
     }
 }

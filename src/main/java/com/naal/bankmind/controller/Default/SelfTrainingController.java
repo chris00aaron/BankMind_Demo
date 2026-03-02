@@ -14,7 +14,7 @@ import java.util.Map;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/default/self-training")
+@RequestMapping("/api/morosidad/self-training")
 @RequiredArgsConstructor
 public class SelfTrainingController {
 

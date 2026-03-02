@@ -28,7 +28,7 @@ public class BatchAccountPredictionDTO {
 
     // Predicción
     private Double probabilidadPago;
-    private String nivelRiesgo;
+    private String clasificacionSBS;
     private BigDecimal montoCuota;
     private BigDecimal estimatedLoss; // Pérdida estimada (EAD × PD × LGD)
 }

@@ -9,6 +9,7 @@ import com.naal.bankmind.dto.Default.Response.BatchMorosidadResponseDTO;
 import com.naal.bankmind.dto.Default.Response.BatchItemResponseDTO;
 import com.naal.bankmind.dto.Default.Response.BatchAccountPredictionDTO;
 import com.naal.bankmind.dto.Default.Response.BatchPredictionWrapperDTO;
+import com.naal.bankmind.dto.Default.Response.ClientPaymentHistoryDTO;
 import com.naal.bankmind.dto.Default.Response.RiskFactorDTO;
 import com.naal.bankmind.entity.AccountDetails;
 import com.naal.bankmind.entity.Customer;
@@ -19,9 +20,14 @@ import com.naal.bankmind.repository.Default.AccountDetailsRepository;
 import com.naal.bankmind.repository.Default.DefaultPoliciesRepository;
 import com.naal.bankmind.repository.Default.DefaultPredictionRepository;
 import com.naal.bankmind.repository.Default.MonthlyHistoryRepository;
+import com.naal.bankmind.repository.Default.ProductionModelDefaultRepository;
+import com.naal.bankmind.entity.Default.ProductionModelDefault;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +38,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -54,6 +62,7 @@ public class MorosidadService {
     private final DefaultPredictionRepository defaultPredictionRepository;
     private final DefaultPoliciesRepository policiesRepository;
     private final DefaultPoliciesRepository defaultPoliciesRepository;
+    private final ProductionModelDefaultRepository productionModelRepository;
 
     /**
      * Realiza una predicción de morosidad para una cuenta.
@@ -87,7 +96,14 @@ public class MorosidadService {
             throw new RuntimeException("Error al comunicarse con el servicio de predicción de morosidad", e);
         }
 
-        guardarPrediccion(historial.get(0), response);
+        // Obtener usuario actual
+        String currentUser = getCurrentUser();
+
+        // Obtener modelo de producción usando la versión de la respuesta
+        ProductionModelDefault productionModel = productionModelRepository.findByVersion(response.modelVersion())
+                .orElse(null);
+
+        guardarPrediccion(historial.get(0), response, currentUser, productionModel);
         return response;
     }
 
@@ -160,6 +176,15 @@ public class MorosidadService {
             throw new RuntimeException("Error al comunicarse con el servicio de predicción batch", e);
         }
 
+        // Obtener usuario actual una sola vez para el batch
+        String currentUser = getCurrentUser();
+
+        // Obtener modelo de producción una sola vez (asumiendo mismo modelo para todo
+        // el batch)
+        ProductionModelDefault productionModel = productionModelRepository
+                .findByVersion(batchResponse.getModelVersion())
+                .orElse(null);
+
         DefaultPolicies activePolicy = policiesRepository.findByIsActiveTrue().orElse(null);
         BigDecimal lgd = activePolicy != null ? activePolicy.getFactorLgd() : BigDecimal.valueOf(0.45);
         Double umbralPolitica = activePolicy != null
@@ -186,11 +211,15 @@ public class MorosidadService {
                     batchResponse.getModelVersion());
 
             // Crear predicción usando política pre-cargada
-            DefaultPrediction pred = crearPrediccionBatch(historial.get(0), singleResponse, activePolicy, lgd);
+            DefaultPrediction pred = crearPrediccionBatch(historial.get(0), singleResponse, activePolicy, lgd,
+                    currentUser, productionModel);
             predictionsToSave.add(pred);
 
+            // Actualizar clasificación SBS real de la cuenta
+            actualizarSBSReal(account, historial.get(0));
+
             double probabilidadPago = (1.0 - item.getProbabilidadDefault()) * 100;
-            String nivelRiesgo = calcularNivelRiesgo(probabilidadPago);
+            String clasificacionSBS = pred.getDefaultCategory();
 
             String nombre = (customer.getFirstName() != null ? customer.getFirstName() : "") + " " +
                     (customer.getSurname() != null ? customer.getSurname() : "");
@@ -215,7 +244,7 @@ public class MorosidadService {
                     account.getLimitBal(),
                     account.getBalance(),
                     probabilidadPago,
-                    nivelRiesgo,
+                    clasificacionSBS,
                     historial.get(0).getBillAmtX(),
                     estimatedLoss));
         }
@@ -257,16 +286,20 @@ public class MorosidadService {
             throw new RuntimeException("Error al comunicarse con el servicio de predicción", e);
         }
 
-        guardarPrediccion(historial.get(0), response);
+        // Obtener usuario actual y modelo
+        String currentUser = getCurrentUser();
+        ProductionModelDefault productionModel = productionModelRepository.findByVersion(response.modelVersion())
+                .orElse(null);
+
+        guardarPrediccion(historial.get(0), response, currentUser, productionModel);
 
         int cuotasAtrasadas = calcularCuotasAtrasadas(historial);
         double historialPagos = calcularHistorialPagos(historial);
         int antiguedadMeses = calcularAntiguedad(customer);
         double probabilidadPago = (1.0 - response.probabilidadDefault()) * 100;
-        String nivelRiesgo = calcularNivelRiesgo(probabilidadPago);
         BigDecimal estimatedLoss = calcularPerdidaEstimada(response, account.getLimitBal());
 
-        // Nuevos cálculos: clasificación SBS, percentil y umbral
+        // Clasificación SBS, percentil y umbral
         DefaultPolicies policy = policiesRepository.findByIsActiveTrue().orElse(null);
         String clasificacionSBS = calcularClasificacionSBS(response.probabilidadDefault(), policy);
         Integer percentilRiesgo = calcularPercentilRiesgo(response.probabilidadDefault());
@@ -287,7 +320,7 @@ public class MorosidadService {
                 customer.getIdCustomer(), nombre.trim(), customer.getAge(), educacion, estadoCivil, fechaRegistro,
                 account.getRecordId(), account.getLimitBal(), account.getBalance(), account.getEstimatedSalary(),
                 account.getTenure(), antiguedadMeses, cuotasAtrasadas, historialPagos, historial.get(0).getBillAmtX(),
-                ultimoPago, response.isDefault(), probabilidadPago, nivelRiesgo,
+                ultimoPago, response.isDefault(), probabilidadPago,
                 response.mainRiskFactor(), response.riskFactors(), response.modelVersion(), estimatedLoss,
                 clasificacionSBS, percentilRiesgo, umbralPolitica);
     }
@@ -307,15 +340,7 @@ public class MorosidadService {
         return (int) ChronoUnit.MONTHS.between(customer.getIdRegistrationDate().toLocalDate(), LocalDate.now());
     }
 
-    private String calcularNivelRiesgo(double probabilidadPago) {
-        if (probabilidadPago >= 75)
-            return "Bajo";
-        if (probabilidadPago >= 50)
-            return "Medio";
-        if (probabilidadPago >= 25)
-            return "Alto";
-        return "Crítico";
-    }
+    // calcularNivelRiesgo eliminado — se usa clasificacionSBS unificada
 
     /**
      * Calcula la clasificación SBS según la matriz de la política activa.
@@ -340,11 +365,19 @@ public class MorosidadService {
 
         // Buscar en la matriz de la política
         for (var rule : policy.getSbsClassificationMatrix()) {
-            if (probabilidadDefault >= rule.getMin() && probabilidadDefault < rule.getMax()) {
+            if (probabilidadDefault >= rule.getMin() && probabilidadDefault <= rule.getMax()) {
                 return rule.getCategoria();
             }
         }
         return "Pérdida"; // Default si no encaja en ningún rango
+    }
+
+    private String getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            return authentication.getName();
+        }
+        return "SYSTEM";
     }
 
     /**
@@ -456,10 +489,11 @@ public class MorosidadService {
      * Crea una predicción sin guardarla (para requests individuales).
      * Busca la política activa una vez.
      */
-    private DefaultPrediction crearPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response) {
+    private DefaultPrediction crearPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response, String user,
+            ProductionModelDefault model) {
         DefaultPolicies policy = policiesRepository.findByIsActiveTrue().orElse(null);
         BigDecimal lgd = policy != null ? policy.getFactorLgd() : BigDecimal.valueOf(0.45);
-        return crearPrediccionBatch(ultimoMes, response, policy, lgd);
+        return crearPrediccionBatch(ultimoMes, response, policy, lgd, user, model);
     }
 
     /**
@@ -467,7 +501,7 @@ public class MorosidadService {
      * OPTIMIZADO para batch: evita N queries a default_policies.
      */
     private DefaultPrediction crearPrediccionBatch(MonthlyHistory ultimoMes, MorosidadResponseDTO response,
-            DefaultPolicies policy, BigDecimal lgd) {
+            DefaultPolicies policy, BigDecimal lgd, String user, ProductionModelDefault model) {
         DefaultPrediction prediction = new DefaultPrediction();
         prediction.setMonthlyHistory(ultimoMes);
         prediction.setDatePrediction(LocalDateTime.now());
@@ -479,6 +513,17 @@ public class MorosidadService {
         BigDecimal billAmtX = ultimoMes.getBillAmtX();
         prediction.setEstimatedLoss(calcularPerdidaEstimadaConLgd(response, billAmtX, lgd));
 
+        // Calcular y setear Clasificación SBS predicha
+        prediction.setDefaultCategory(calcularClasificacionSBS(response.probabilidadDefault(), policy));
+
+        // Guardar clasificación SBS real para historial
+        int mesesAtraso = ultimoMes.getPayX() != null ? ultimoMes.getPayX() : 0;
+        prediction.setSbsCategoryReal(calcularEstadoSBSReal(mesesAtraso));
+
+        // Setear usuario y modelo
+        prediction.setRequestingUser(user);
+        prediction.setIdProductionModel(model);
+
         // Asociar la política pre-cargada
         if (policy != null) {
             prediction.setIdPolicy(policy);
@@ -489,11 +534,48 @@ public class MorosidadService {
 
     /**
      * Guarda una predicción individual (para requests individuales).
+     * También actualiza la clasificación SBS real de la cuenta.
      */
-    private void guardarPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response) {
-        DefaultPrediction prediction = crearPrediccion(ultimoMes, response);
+    private void guardarPrediccion(MonthlyHistory ultimoMes, MorosidadResponseDTO response, String user,
+            ProductionModelDefault model) {
+        DefaultPrediction prediction = crearPrediccion(ultimoMes, response, user, model);
         defaultPredictionRepository.save(prediction);
         log.info("Predicción guardada con ID: {}", prediction.getIdPrediction());
+
+        // Actualizar clasificación SBS real de la cuenta
+        actualizarSBSReal(ultimoMes.getAccountDetails(), ultimoMes);
+    }
+
+    /**
+     * Actualiza la clasificación SBS real de una cuenta basándose en los meses de
+     * atraso.
+     */
+    private void actualizarSBSReal(AccountDetails account, MonthlyHistory ultimoMes) {
+        int mesesAtraso = ultimoMes.getPayX() != null ? ultimoMes.getPayX() : 0;
+        String sbsReal = calcularEstadoSBSReal(mesesAtraso);
+        account.setSbsCategoryReal(sbsReal);
+        accountDetailsRepository.save(account);
+        log.info("SBS Real actualizada para cuenta {}: {}", account.getRecordId(), sbsReal);
+    }
+
+    /**
+     * Calcula la clasificación SBS real basándose en los meses de atraso.
+     * Normal: Al día (pay_x <= 0)
+     * CPP: 1 mes atraso (pay_x = 1)
+     * Deficiente: 2 meses atraso (pay_x = 2)
+     * Dudoso: 3-4 meses atraso (pay_x = 3 o 4)
+     * Pérdida: > 4 meses (pay_x >= 5)
+     */
+    private String calcularEstadoSBSReal(int mesesAtraso) {
+        if (mesesAtraso <= 0)
+            return "Normal";
+        if (mesesAtraso == 1)
+            return "CPP";
+        if (mesesAtraso == 2)
+            return "Deficiente";
+        if (mesesAtraso <= 4)
+            return "Dudoso";
+        return "Pérdida";
     }
 
     /**
@@ -554,5 +636,49 @@ public class MorosidadService {
                 umbralPolitica,
                 clasificacionSBS,
                 response.modelVersion());
+    }
+
+    /**
+     * Obtiene el historial de pagos mensual de una cuenta (máx. 10 meses).
+     * Retorna datos ordenados cronológicamente (más antiguo primero).
+     */
+    public List<ClientPaymentHistoryDTO> getPaymentHistory(Long recordId) {
+        List<MonthlyHistory> history = monthlyHistoryRepository
+                .findRecentByRecordId(recordId, PageRequest.of(0, 10));
+
+        // Invertir para orden cronológico (más antiguo → más reciente)
+        Collections.reverse(history);
+
+        return history.stream().map(mh -> {
+            String period = mh.getMonthlyPeriod()
+                    .format(DateTimeFormatter.ofPattern("MMM yyyy", new Locale("es", "PE")));
+
+            Integer payX = mh.getPayX() != null ? mh.getPayX() : 0;
+            Integer monthsLate = Math.max(0, payX);
+
+            Long daysLate = null;
+            if (mh.getExpirationDate() != null && mh.getActualPaymentDate() != null) {
+                daysLate = ChronoUnit.DAYS.between(mh.getExpirationDate(), mh.getActualPaymentDate());
+                if (daysLate < 0)
+                    daysLate = 0L;
+            }
+
+            // Clasificación según codificación del modelo
+            String status;
+            if (payX == -2)
+                status = "Sin consumo";
+            else if (payX == -1)
+                status = "A tiempo";
+            else if (payX == 0)
+                status = "Crédito renovable";
+            else if (payX >= 9)
+                status = "9+ meses de retraso";
+            else
+                status = payX + " mes(es) de retraso";
+
+            return new ClientPaymentHistoryDTO(
+                    period, payX, monthsLate, mh.getBillAmtX(), mh.getPayAmtX(),
+                    mh.getDidCustomerPay(), daysLate, status);
+        }).collect(Collectors.toList());
     }
 }

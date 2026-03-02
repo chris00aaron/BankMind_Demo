@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
  * Controlador para el dashboard de morosidad.
  */
 @RestController
-@RequestMapping("/api/dashboard")
+@RequestMapping("/api/morosidad/dashboard")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class DashboardDefaultController {

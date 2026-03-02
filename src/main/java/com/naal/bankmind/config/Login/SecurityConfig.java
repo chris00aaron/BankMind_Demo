@@ -51,14 +51,7 @@ public class SecurityConfig {
                                 "/api/fraud/confirm/**", // Confirmación de transacciones legítimas
                                 "/api/fraud/block/**", // Reporte de fraude y bloqueo
                                 "/api/v1/churn/**", // Rutas de churn (ajustado para coincidir con el controlador)
-                                "/api/morosidad/**", // SOLO PARA PRUEBAS QUITAR LUEGO
-                                "/api/customers/**", // SOLO PARA PRUEBAS QUITAR LUEGO
-                                "/api/dashboard/**", // SOLO PARA PRUEBAS QUITAR LUEGO
-                                "/api/policies/**", // SOLO PARA PRUEBAS QUITAR LUEGO
-                                "/api/warnings/**", // SOLO PARA PRUEBAS QUITAR LUEGO
-                                "/api/model/**", // SOLO PARA PRUEBAS QUITAR LUEGO
-                                "/api/default/**", // SOLO PARA PRUEBAS QUITAR LUEGO (DATA SINTETICA MOROSIDAD)
-                                "/api/portfolio/**", // NUEVO ENDPOINT DE CARTERA
+                                "/api/morosidad/**", // Módulo de morosidad unificado
                                 "/error",
                                 // Path de ATM
                                 "atm/**", // SOLO PARA PRUEBAS QUITAR LUEGO

@@ -13,7 +13,7 @@ import java.util.List;
  * Controlador para gestión de políticas de default.
  */
 @RestController
-@RequestMapping("/api/policies")
+@RequestMapping("/api/morosidad/policies")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class PoliciesController {

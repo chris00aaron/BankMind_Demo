@@ -15,7 +15,7 @@ import java.util.List;
  * Controller para operaciones de clientes.
  */
 @RestController
-@RequestMapping("/api/customers")
+@RequestMapping("/api/morosidad/customers")
 @RequiredArgsConstructor
 public class CustomerController {
 

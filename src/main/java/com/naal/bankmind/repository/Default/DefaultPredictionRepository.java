@@ -21,4 +21,15 @@ public interface DefaultPredictionRepository extends JpaRepository<DefaultPredic
                         "WHERE p.datePrediction BETWEEN :startDate AND :endDate AND p.idProductionModel.idProductionModel = :modelId")
         java.util.List<DefaultPrediction> findPredictionsForValidation(java.time.LocalDateTime startDate,
                         java.time.LocalDateTime endDate, Long modelId);
+
+        /**
+         * Obtiene todas las predicciones de una cuenta ordenadas por fecha.
+         * Usado para el gráfico de timeline de predicción individual.
+         */
+        @Query("SELECT p FROM DefaultPrediction p " +
+                        "JOIN FETCH p.monthlyHistory mh " +
+                        "WHERE mh.accountDetails.recordId = :recordId " +
+                        "ORDER BY p.datePrediction ASC")
+        java.util.List<DefaultPrediction> findByRecordIdOrderByDateAsc(
+                        @org.springframework.data.repository.query.Param("recordId") Long recordId);
 }

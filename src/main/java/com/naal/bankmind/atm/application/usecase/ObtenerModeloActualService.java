@@ -22,5 +22,5 @@ public class ObtenerModeloActualService implements ObtenerModeloActualEnProducci
             .map(ModelPredictionMapper::toModelProductionDTO)
             .orElseThrow(() -> new ModeloPrediccionIndisponibleException("Actualmente no hay un modelo en produccion"));
     }
-
+    
 }

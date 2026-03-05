@@ -2,6 +2,8 @@ package com.naal.bankmind.controller.Churn;
 
 import com.naal.bankmind.dto.Churn.ChurnRequestDTO;
 import com.naal.bankmind.dto.Churn.ChurnResponseDTO;
+import com.naal.bankmind.dto.Churn.CampaignLogDTO;
+import com.naal.bankmind.dto.Churn.SegmentDTO;
 import com.naal.bankmind.dto.Churn.TrainResultDTO;
 import com.naal.bankmind.dto.Churn.PerformanceStatusDTO;
 import com.naal.bankmind.entity.ChurnPredictions;
@@ -23,6 +25,8 @@ import java.util.List;
  * - GET /api/v1/churn/recommendation/{idCustomer} - Next Best Action
  * - GET /api/v1/churn/geography - Geography statistics
  * - GET /api/v1/churn/mlops - MLOps metrics
+ * - GET /api/v1/churn/campaigns - List campaigns (persisted)
+ * - POST /api/v1/churn/campaigns - Create campaign (persisted)
  * - POST /api/v1/churn/train - Auto-training trigger
  * - GET /api/v1/churn/monitor/status - Performance monitor status
  * - POST /api/v1/churn/monitor/evaluate - Manual performance evaluation
@@ -153,9 +157,38 @@ public class ChurnController {
      * Returns all segment definitions for the rule engine.
      */
     @GetMapping("/config/segments")
-    public ResponseEntity<List<com.naal.bankmind.dto.Churn.SegmentDTO>> getSegments() {
-        List<com.naal.bankmind.dto.Churn.SegmentDTO> segments = churnService.getAllSegments();
+    public ResponseEntity<List<SegmentDTO>> getSegments() {
+        List<SegmentDTO> segments = churnService.getAllSegments();
         return ResponseEntity.ok(segments);
+    }
+
+    /**
+     * POST /api/v1/churn/config/segments
+     * Creates a new custom segment definition.
+     */
+    @PostMapping("/config/segments")
+    public ResponseEntity<SegmentDTO> createSegment(@RequestBody SegmentDTO request) {
+        try {
+            SegmentDTO created = churnService.createSegment(request);
+            return ResponseEntity.ok(created);
+        } catch (Exception e) {
+            System.err.println("Error creating segment: " + e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /**
+     * DELETE /api/v1/churn/config/segments/{id}
+     * Deletes a segment definition by ID.
+     */
+    @DeleteMapping("/config/segments/{id}")
+    public ResponseEntity<Void> deleteSegment(@PathVariable Integer id) {
+        try {
+            churnService.deleteSegment(id);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     /**
@@ -166,6 +199,35 @@ public class ChurnController {
     public ResponseEntity<List<RetentionStrategyDef>> getStrategies() {
         List<RetentionStrategyDef> strategies = churnService.getAllStrategies();
         return ResponseEntity.ok(strategies);
+    }
+
+    // ============================================================
+    // CAMPAIGN MANAGEMENT (M2 — Real Persistence)
+    // ============================================================
+
+    /**
+     * GET /api/v1/churn/campaigns
+     * Returns all campaigns from the database.
+     */
+    @GetMapping("/campaigns")
+    public ResponseEntity<List<CampaignLogDTO>> getCampaigns() {
+        List<CampaignLogDTO> campaigns = churnService.getCampaigns();
+        return ResponseEntity.ok(campaigns);
+    }
+
+    /**
+     * POST /api/v1/churn/campaigns
+     * Creates a new campaign and persists it in the database.
+     */
+    @PostMapping("/campaigns")
+    public ResponseEntity<CampaignLogDTO> createCampaign(@RequestBody CampaignLogDTO request) {
+        try {
+            CampaignLogDTO result = churnService.createCampaign(request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            System.err.println("Error creating campaign: " + e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     /**

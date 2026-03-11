@@ -1,5 +1,6 @@
 package com.naal.bankmind.entity.Login;
 
+import com.naal.bankmind.config.Login.AttributeEncryptor;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -14,10 +15,12 @@ public class User {
     @Column(name = "id_user")
     private Long idUser;
 
-    @Column(name = "dni", length = 100, nullable = false, unique = true)
+    @Convert(converter = AttributeEncryptor.class)
+    @Column(name = "dni", length = 255, nullable = false, unique = true)
     private String dni;
 
-    @Column(name = "full_name", length = 100, nullable = false)
+    @Convert(converter = AttributeEncryptor.class)
+    @Column(name = "full_name", length = 255, nullable = false)
     private String fullName;
 
     @Column(name = "email", length = 100, nullable = false, unique = true)
@@ -26,7 +29,8 @@ public class User {
     @Column(name = "password", length = 255, nullable = false)
     private String password;
 
-    @Column(name = "phone", length = 9)
+    @Convert(converter = AttributeEncryptor.class)
+    @Column(name = "phone", length = 255)
     private String phone;
 
     @ManyToOne

@@ -36,9 +36,10 @@ public class AuthService {
     private final OtpService otpService;
     private final CustomUserDetailsService userDetailsService;
     private final PasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
     @Transactional
-    public LoginResponse authenticate(LoginRequest request) {
+    public LoginResponse authenticate(LoginRequest request, String ipAddress, String userAgent) {
         try {
             // Validar credenciales
             authenticationManager.authenticate(
@@ -47,6 +48,8 @@ public class AuthService {
                             request.getPassword()));
         } catch (BadCredentialsException e) {
             log.warn("Intento de login fallido para: {}", request.getEmail());
+            // Registrar intento fallido en auditoría
+            auditService.logFailedLogin(request.getEmail(), ipAddress, userAgent, "Credenciales inválidas");
             throw new BadCredentialsException("Credenciales inválidas");
         }
 
@@ -91,7 +94,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse verifyOtpAndLogin(VerifyOtpRequest request) {
+    public AuthResponse verifyOtpAndLogin(VerifyOtpRequest request, String ipAddress, String userAgent) {
         Optional<OtpVerification> otpOpt = otpService.verifyOtp(request.getMfaToken(), request.getCode());
 
         if (otpOpt.isEmpty()) {
@@ -115,6 +118,9 @@ public class AuthService {
 
         // Guardar refresh token en base de datos
         saveRefreshToken(user, refreshToken);
+
+        // Registrar login exitoso en auditoría
+        auditService.logLogin(user, ipAddress, userAgent, "SUCCESS", null);
 
         log.info("✅ Login exitoso para usuario: {}", user.getEmail());
 

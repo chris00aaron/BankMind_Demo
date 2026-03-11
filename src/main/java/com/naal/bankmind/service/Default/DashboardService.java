@@ -6,11 +6,13 @@ import com.naal.bankmind.entity.Customer;
 import com.naal.bankmind.entity.MonthlyHistory;
 import com.naal.bankmind.entity.Default.DefaultPrediction;
 import com.naal.bankmind.entity.Default.TrainingHistory;
-import com.naal.bankmind.repository.Default.CustomerRepository;
 import com.naal.bankmind.repository.Default.DefaultPoliciesRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import jakarta.persistence.EntityManager;
@@ -27,7 +29,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DashboardService {
 
-    private final CustomerRepository customerRepository;
     private final DefaultPoliciesRepository policiesRepository;
     private final EntityManager entityManager;
 
@@ -181,18 +182,18 @@ public class DashboardService {
         for (DefaultPrediction pred : latestPredictions) {
             if (pred.getDefaultProbability() == null)
                 continue;
-            double probPago = (1.0 - pred.getDefaultProbability().doubleValue()) * 100;
+            double probImpago = pred.getDefaultProbability().doubleValue() * 100;
 
-            if (probPago < 20)
-                rangos.merge("0-20%", 1L, Long::sum);
-            else if (probPago < 40)
-                rangos.merge("20-40%", 1L, Long::sum);
-            else if (probPago < 60)
-                rangos.merge("40-60%", 1L, Long::sum);
-            else if (probPago < 80)
-                rangos.merge("60-80%", 1L, Long::sum);
+            if (probImpago < 20)
+                rangos.merge("0-20%", 1L, (a, b) -> a + b);
+            else if (probImpago < 40)
+                rangos.merge("20-40%", 1L, (a, b) -> a + b);
+            else if (probImpago < 60)
+                rangos.merge("40-60%", 1L, (a, b) -> a + b);
+            else if (probImpago < 80)
+                rangos.merge("60-80%", 1L, (a, b) -> a + b);
             else
-                rangos.merge("80-100%", 1L, Long::sum);
+                rangos.merge("80-100%", 1L, (a, b) -> a + b);
         }
 
         return rangos.entrySet().stream()
@@ -201,7 +202,9 @@ public class DashboardService {
     }
 
     /**
-     * Segmentación por clasificación SBS predicha.
+     * Segmentación por clasificación SBS REAL (basada en payX actual del cliente).
+     * Escala: payX ≤ 0 → Normal | 1 → CPP | 2 → Deficiente | 3 → Dudoso | ≥ 4 →
+     * Pérdida
      */
     private List<SegmentacionRiesgo> calcularSegmentacionRiesgo(List<DefaultPrediction> latestPredictions) {
         Map<String, Long> conteo = new LinkedHashMap<>();
@@ -219,15 +222,13 @@ public class DashboardService {
         dinero.put("Pérdida", 0.0);
 
         for (DefaultPrediction pred : latestPredictions) {
-            if (pred.getDefaultProbability() == null)
-                continue;
-            String cat = pred.getDefaultCategory();
-            if (cat == null || cat.isBlank())
-                cat = "Sin clasificar";
+            // Clasificación REAL: derivada del payX del periodo asociado a esta predicción
+            Integer payX = pred.getMonthlyHistory() != null ? pred.getMonthlyHistory().getPayX() : null;
+            String catReal = derivarClasificacionSBSReal(payX);
             double loss = pred.getEstimatedLoss() != null ? pred.getEstimatedLoss().doubleValue() : 0.0;
 
-            conteo.merge(cat, 1L, Long::sum);
-            dinero.merge(cat, loss, Double::sum);
+            conteo.merge(catReal, 1L, (a, b) -> a + b);
+            dinero.merge(catReal, loss, (a, b) -> a + b);
         }
 
         List<SegmentacionRiesgo> result = new ArrayList<>();
@@ -235,6 +236,22 @@ public class DashboardService {
             result.add(new SegmentacionRiesgo(cat, conteo.get(cat), dinero.get(cat)));
         }
         return result;
+    }
+
+    /**
+     * Convierte el valor payX en la clasificación SBS real correspondiente.
+     * payX ≤ 0 → Normal | 1 → CPP | 2 → Deficiente | 3-4 → Dudoso | ≥ 5 → Pérdida
+     */
+    private String derivarClasificacionSBSReal(Integer payX) {
+        if (payX == null || payX <= 0)
+            return "Normal";
+        if (payX == 1)
+            return "CPP";
+        if (payX == 2)
+            return "Deficiente";
+        if (payX <= 4)
+            return "Dudoso";
+        return "Pérdida";
     }
 
     /**
@@ -420,11 +437,145 @@ public class DashboardService {
             String cat = pred.getDefaultCategory();
             if (cat == null || cat.isBlank())
                 cat = "Sin clasificar";
-            conteo.merge(cat, 1L, Long::sum);
+            conteo.merge(cat, 1L, (a, b) -> a + b);
         }
 
         return conteo.entrySet().stream()
                 .map(e -> new DistribucionSBS(e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Obtiene los clientes paginados y filtrados.
+     */
+    public Page<ClienteAltoRiesgo> getDashboardClientsPaginated(int page, int size, String nombre,
+            String clasificacionSBS, String sortBy, String sortDir, String educacion,
+            Integer edadMin, Integer edadMax) {
+        List<DefaultPrediction> latestPredictions = getLatestPredictionsPerAccount();
+
+        List<DefaultPrediction> filtered = new ArrayList<>();
+        for (DefaultPrediction pred : latestPredictions) {
+            Customer customer = pred.getMonthlyHistory().getAccountDetails().getCustomer();
+
+            boolean matchSbs = true;
+            if (clasificacionSBS != null && !clasificacionSBS.isBlank()) {
+                String cat = pred.getMonthlyHistory().getAccountDetails().getSbsCategoryReal();
+                if (cat == null)
+                    cat = "Sin clasificar";
+                matchSbs = cat.equalsIgnoreCase(clasificacionSBS.trim());
+            }
+
+            String fullName = (customer.getFirstName() != null ? customer.getFirstName() : "") + " " +
+                    (customer.getSurname() != null ? customer.getSurname() : "");
+            fullName = fullName.trim();
+            boolean matchNombre = true;
+            if (nombre != null && !nombre.isBlank()) {
+                matchNombre = fullName.toLowerCase().contains(nombre.trim().toLowerCase());
+            }
+
+            boolean matchEducacion = true;
+            if (educacion != null && !educacion.isBlank()) {
+                Integer idEdu = customer.getEducation() != null ? customer.getEducation().getIdEducation() : null;
+                String mappedEdu = "Otro";
+                if (idEdu != null) {
+                    mappedEdu = switch (idEdu) {
+                        case 1 -> "Postgrado";
+                        case 2 -> "Universidad"; // Alineado con el combobox 'Universidad' en React
+                        case 3 -> "Secundaria";
+                        case 4 -> "Primaria";
+                        default -> "Otro";
+                    };
+                }
+
+                // En el combobox de React las opciones son: Universidad, Posgrado,
+                // Preparatoria, Otro
+                // Mapearemos "Posgrado" de React a "Postgrado" y "Preparatoria/Otro" a
+                // "Secundaria/Otro"
+                String eduFiltro = educacion.trim();
+                if (eduFiltro.equalsIgnoreCase("Posgrado"))
+                    eduFiltro = "Postgrado";
+                if (eduFiltro.equalsIgnoreCase("Preparatoria"))
+                    eduFiltro = "Secundaria";
+                if (eduFiltro.equalsIgnoreCase("Otro") && mappedEdu.equals("Primaria"))
+                    eduFiltro = "Primaria"; // Match all others to 'Otro'
+
+                matchEducacion = mappedEdu.equalsIgnoreCase(eduFiltro) ||
+                        (eduFiltro.equalsIgnoreCase("Otro")
+                                && (mappedEdu.equals("Otro") || mappedEdu.equals("Secundaria")));
+            }
+
+            boolean matchEdad = true;
+            Integer age = customer.getAge();
+            if (edadMin != null)
+                matchEdad = age != null && age >= edadMin;
+            if (edadMax != null && matchEdad)
+                matchEdad = age != null && age <= edadMax;
+
+            if (matchSbs && matchNombre && matchEducacion && matchEdad) {
+                filtered.add(pred);
+            }
+        }
+
+        // Ordenamiento dinámico
+        Comparator<DefaultPrediction> comparator;
+        switch (sortBy != null ? sortBy : "probabilidadPago") {
+            case "montoCuota":
+                comparator = Comparator.comparing(
+                        p -> p.getMonthlyHistory().getBillAmtX() != null
+                                ? p.getMonthlyHistory().getBillAmtX().doubleValue()
+                                : 0.0);
+                break;
+            case "recordId":
+                comparator = Comparator.comparing(
+                        p -> p.getMonthlyHistory().getAccountDetails().getRecordId());
+                break;
+            case "cuotasAtrasadas":
+                comparator = Comparator.comparing(
+                        p -> p.getMonthlyHistory().getPayX() != null ? p.getMonthlyHistory().getPayX() : 0);
+                break;
+            default: // probabilidadPago
+                comparator = Comparator.comparing(
+                        p -> p.getDefaultProbability() != null ? p.getDefaultProbability().doubleValue() : 0.0);
+                break;
+        }
+        if ("desc".equalsIgnoreCase(sortDir)) {
+            comparator = comparator.reversed();
+        }
+        filtered.sort(comparator);
+
+        int totalElements = filtered.size();
+        int start = Math.min(page * size, totalElements);
+        int end = Math.min(start + size, totalElements);
+        List<DefaultPrediction> pagePredictions = filtered.subList(start, end);
+
+        List<Long> recordIdsToFetch = pagePredictions.stream()
+                .map(p -> p.getMonthlyHistory().getAccountDetails().getRecordId())
+                .collect(Collectors.toList());
+
+        Map<Long, Integer> cuotasPorCuenta = obtenerCuotasAtrasadasBatch(recordIdsToFetch);
+
+        List<ClienteAltoRiesgo> resultClients = new ArrayList<>();
+        for (DefaultPrediction pred : pagePredictions) {
+            Customer customer = pred.getMonthlyHistory().getAccountDetails().getCustomer();
+            MonthlyHistory mh = pred.getMonthlyHistory();
+            Long recordId = mh.getAccountDetails().getRecordId();
+
+            double probPago = (1.0 - pred.getDefaultProbability().doubleValue()) * 100;
+            String clasificacion = mh.getAccountDetails().getSbsCategoryReal() != null
+                    ? mh.getAccountDetails().getSbsCategoryReal()
+                    : "Sin clasificar";
+            String fullName = (customer.getFirstName() != null ? customer.getFirstName() : "") + " " +
+                    (customer.getSurname() != null ? customer.getSurname() : "");
+
+            resultClients.add(new ClienteAltoRiesgo(
+                    recordId,
+                    fullName.trim(),
+                    Math.round(probPago * 10.0) / 10.0,
+                    clasificacion,
+                    mh.getBillAmtX() != null ? mh.getBillAmtX().doubleValue() : 0.0,
+                    cuotasPorCuenta.getOrDefault(recordId, 0)));
+        }
+
+        return new PageImpl<>(resultClients, PageRequest.of(page, size), totalElements);
     }
 }

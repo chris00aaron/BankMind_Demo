@@ -4,7 +4,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.naal.bankmind.atm.domain.model.MonitoringDecision;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,11 +23,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
 @Setter
+@Getter
 @ToString()
 @NoArgsConstructor
 @AllArgsConstructor
@@ -45,8 +51,9 @@ public class PerformanceMonitorModelAtm {
             unique = true) // Debe ser único
     private WithdrawalModel withdrawalModel;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "psi_results", columnDefinition = "jsonb", nullable = false)
-    private Map<String, Object> psiResults;
+    private Map<String, PSIFeatureResult> psiResults;
 
     @Column(name = "mae", precision = 15, scale = 3 ,nullable = false)
     private BigDecimal mae;
@@ -74,4 +81,7 @@ public class PerformanceMonitorModelAtm {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "need_selftraining", nullable = false)
+    private Boolean needSelfTraining;
 }

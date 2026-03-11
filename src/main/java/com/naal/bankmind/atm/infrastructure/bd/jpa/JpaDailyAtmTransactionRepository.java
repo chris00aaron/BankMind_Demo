@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.naal.bankmind.atm.infrastructure.bd.projections.TransactionSummaryProjection;
 import com.naal.bankmind.entity.atm.DailyAtmTransaction;
 import com.naal.bankmind.entity.atm.TransactionType;
 
@@ -21,4 +22,20 @@ public interface JpaDailyAtmTransactionRepository extends JpaRepository<DailyAtm
             "JOIN FETCH t.features " +
             "WHERE t.transactionDate = :fecha AND t.type = :type")
     List<DailyAtmTransaction> obtenerTransaccionesConDetallesParaPrediccion(@Param("fecha") LocalDate fecha, @Param("type") TransactionType type);
+
+
+    @Query(value = """
+        SELECT 
+            dat.transaction_date AS transactionDate,
+            SUM(CASE WHEN dat.transaction_type = 'WITHDRAWAL' THEN dat.amount ELSE 0 END) AS withdrawalTotal,
+            SUM(CASE WHEN dat.transaction_type = 'DEPOSIT' THEN dat.amount ELSE 0 END) AS depositTotal
+        FROM daily_atm_transactions dat
+        WHERE dat.transaction_date BETWEEN :desde AND :hasta
+        GROUP BY dat.transaction_date
+        ORDER BY dat.transaction_date
+    """, nativeQuery = true)
+    List<TransactionSummaryProjection> obtenerResumenTransacciones(
+            @Param("desde") LocalDate desde,
+            @Param("hasta") LocalDate hasta
+    );
 }

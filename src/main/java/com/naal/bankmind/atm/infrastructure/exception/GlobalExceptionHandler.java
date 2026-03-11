@@ -1,4 +1,4 @@
-package com.naal.bankmind.exception;
+package com.naal.bankmind.atm.infrastructure.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

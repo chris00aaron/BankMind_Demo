@@ -75,21 +75,39 @@ public class AuthService {
                     .build();
         }
 
-        // Validar que tenga teléfono para MFA (flujo normal)
-        if (user.getPhone() == null || user.getPhone().isEmpty()) {
-            log.error("Usuario sin teléfono registrado: {}", user.getEmail());
-            throw new IllegalStateException("El usuario no tiene un número de teléfono registrado para MFA");
-        }
-
-        // Generar y enviar OTP
+        // Generar y enviar OTP por email
         OtpVerification otp = otpService.generateOtp(user);
 
         return LoginResponse.builder()
                 .requiresMfa(true)
                 .requiresPasswordChange(false)
                 .mfaToken(otp.getMfaToken())
-                .phoneHint(otpService.getPhoneHint(user.getPhone()))
-                .message("Código de verificación enviado al teléfono " + otpService.getPhoneHint(user.getPhone()))
+                .emailHint(otpService.getEmailHint(user.getEmail()))
+                .message("Código de verificación enviado al correo " + otpService.getEmailHint(user.getEmail()))
+                .build();
+    }
+
+    /**
+     * Reenviar código OTP al email del usuario.
+     * Busca el usuario por el mfaToken activo y genera un nuevo OTP.
+     */
+    @Transactional
+    public LoginResponse resendOtp(String mfaToken) {
+        User user = otpService.findUserByMfaToken(mfaToken)
+                .orElseThrow(() -> new BadCredentialsException(
+                        "Sesión MFA no encontrada o expirada. Inicie sesión nuevamente."));
+
+        // Generar nuevo OTP (invalida el anterior automáticamente)
+        OtpVerification newOtp = otpService.generateOtp(user);
+
+        log.info("🔄 OTP reenviado por correo al usuario: {}", otpService.getEmailHint(user.getEmail()));
+
+        return LoginResponse.builder()
+                .requiresMfa(true)
+                .requiresPasswordChange(false)
+                .mfaToken(newOtp.getMfaToken())
+                .emailHint(otpService.getEmailHint(user.getEmail()))
+                .message("Nuevo código de verificación enviado al correo " + otpService.getEmailHint(user.getEmail()))
                 .build();
     }
 
@@ -192,7 +210,6 @@ public class AuthService {
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .dni(user.getDni())
-                .phone(otpService.getPhoneHint(user.getPhone()))
                 .role(user.getRol() != null ? user.getRol().getCodRole() : null)
                 .roleName(user.getRol() != null ? user.getRol().getName() : null)
                 .build();

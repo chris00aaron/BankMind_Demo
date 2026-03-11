@@ -3,7 +3,6 @@ package com.naal.bankmind.service.Login;
 import com.naal.bankmind.entity.Login.OtpVerification;
 import com.naal.bankmind.entity.Login.User;
 import com.naal.bankmind.repository.Login.OtpVerificationRepository;
-import com.naal.bankmind.service.Login.sms.SmsNotificationPort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +18,8 @@ import java.util.UUID;
 /**
  * Servicio de gestión de códigos OTP para autenticación MFA.
  *
- * El envío del SMS se delega a {@link SmsNotificationPort} —
- * no depende directamente de ningún proveedor (Twilio, AWS SNS, etc.).
- * La implementación concreta se inyecta por Spring según la configuración
- * {@code twilio.enabled} en application.properties (DIP).
+ * El envío del código se delega a {@link OtpEmailService},
+ * que utiliza el servicio genérico de email con templates Thymeleaf.
  */
 @Service
 @RequiredArgsConstructor
@@ -30,7 +27,7 @@ import java.util.UUID;
 public class OtpService {
 
     private final OtpVerificationRepository otpRepository;
-    private final SmsNotificationPort smsNotificationPort;
+    private final OtpEmailService otpEmailService;
 
     @Value("${otp.expiration-minutes}")
     private int otpExpirationMinutes;
@@ -60,9 +57,8 @@ public class OtpService {
 
         OtpVerification savedOtp = otpRepository.save(otp);
 
-        // 3. Enviar SMS — la implementación real (Twilio) o de consola
-        // se resuelve en tiempo de ejecución por Spring (DIP)
-        smsNotificationPort.sendOtp(user.getPhone(), code, otpExpirationMinutes);
+        // 3. Enviar código OTP por email
+        otpEmailService.sendOtpEmail(user.getEmail(), code, otpExpirationMinutes);
 
         return savedOtp;
     }
@@ -104,8 +100,12 @@ public class OtpService {
         return Optional.of(otp);
     }
 
-    public String getPhoneHint(String phone) {
-        return maskPhone(phone);
+    /**
+     * Enmascara el email para mostrar como hint al usuario.
+     * Ejemplo: "admin@bankmind.com" → "a***n@bankmind.com"
+     */
+    public String getEmailHint(String email) {
+        return maskEmail(email);
     }
 
     public int getRemainingAttempts(String mfaToken) {
@@ -114,14 +114,29 @@ public class OtpService {
                 .orElse(0);
     }
 
+    /**
+     * Buscar el usuario asociado a un MFA token activo.
+     * Usado para reenvío de OTP.
+     */
+    public Optional<User> findUserByMfaToken(String mfaToken) {
+        return otpRepository.findByMfaTokenAndVerifiedFalse(mfaToken)
+                .map(OtpVerification::getUser);
+    }
+
     @Transactional
     public void cleanupExpiredOtps() {
         otpRepository.deleteExpiredOtps(LocalDateTime.now());
     }
 
-    private String maskPhone(String phone) {
-        if (phone == null || phone.length() < 4)
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) {
             return "****";
-        return "****" + phone.substring(phone.length() - 4);
+        }
+        String[] parts = email.split("@");
+        String local = parts[0];
+        if (local.length() <= 2) {
+            return local.charAt(0) + "***@" + parts[1];
+        }
+        return local.charAt(0) + "***" + local.charAt(local.length() - 1) + "@" + parts[1];
     }
 }

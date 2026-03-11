@@ -6,6 +6,7 @@ import com.naal.bankmind.dto.Login.ForgotPasswordRequest;
 import com.naal.bankmind.dto.Login.LoginRequest;
 import com.naal.bankmind.dto.Login.LoginResponse;
 import com.naal.bankmind.dto.Login.RefreshTokenRequest;
+import com.naal.bankmind.dto.Login.ResendOtpRequest;
 import com.naal.bankmind.dto.Login.VerifyOtpRequest;
 import com.naal.bankmind.dto.Shared.ApiResponse;
 import com.naal.bankmind.service.Login.AuthService;
@@ -41,7 +42,7 @@ public class AuthController {
 
     /**
      * Paso 1: Login con email y contraseña
-     * Envía código OTP al teléfono registrado
+     * Envía código OTP al correo electrónico registrado
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
@@ -84,6 +85,25 @@ public class AuthController {
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(401)
                     .body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    /**
+     * Reenviar código OTP al correo del usuario
+     */
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ApiResponse<LoginResponse>> resendOtp(
+            @Valid @RequestBody ResendOtpRequest request) {
+        try {
+            LoginResponse response = authService.resendOtp(request.getMfaToken());
+            return ResponseEntity.ok(ApiResponse.success("Código de verificación reenviado", response));
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(401)
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error al reenviar OTP: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Error al reenviar código de verificación"));
         }
     }
 

@@ -13,5 +13,5 @@ public class LoginResponse {
     private String accessToken; // Token temporal para cambio de contraseña
     private Long userId;
     private String message;
-    private String phoneHint; // Últimos 4 dígitos del teléfono
+    private String emailHint; // Email enmascarado del destinatario
 }

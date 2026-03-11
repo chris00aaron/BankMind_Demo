@@ -2,6 +2,7 @@ package com.naal.bankmind.service.Fraud;
 
 import com.naal.bankmind.dto.Fraud.BatchApiRequestDto;
 import com.naal.bankmind.dto.Fraud.BatchApiResponseDto;
+import com.naal.bankmind.dto.Fraud.ClusteringApiResponseDto;
 import com.naal.bankmind.dto.Fraud.FraudPredictionRequestDto;
 import com.naal.bankmind.dto.Fraud.FraudPredictionResponseDto;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -78,6 +79,35 @@ public class FraudApiClient {
                     e);
         } catch (Exception e) {
             throw new RuntimeException("Error de conexión con API de Fraude (batch): " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Llama al endpoint de clustering de fraude en la API de Python.
+     * Ejecuta K-Means sobre transacciones ALTO RIESGO y devuelve los perfiles.
+     *
+     * @param nClusters  Número de clusters a generar (default: 3)
+     * @param minSamples Mínimo de muestras requeridas (default: 30)
+     * @return ClusteringApiResponseDto con los perfiles generados
+     */
+    public ClusteringApiResponseDto computeClusters(int nClusters, int minSamples) {
+        try {
+            // Construir cuerpo de la petición inline (es un mapa simple)
+            var body = java.util.Map.of(
+                    "n_clusters", nClusters,
+                    "min_samples", minSamples);
+            return webClient.post()
+                    .uri("/fraude/clustering/compute")
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(ClusteringApiResponseDto.class)
+                    .block();
+        } catch (WebClientResponseException e) {
+            throw new RuntimeException(
+                    "Error al llamar API de Clustering: " + e.getStatusCode() + " - " + e.getResponseBodyAsString(), e);
+        } catch (Exception e) {
+            throw new RuntimeException("Error de conexión con API de Clustering: " + e.getMessage(), e);
         }
     }
 

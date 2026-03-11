@@ -43,16 +43,17 @@ public class DataSeeder implements CommandLineRunner {
             new RoleData("OPERARIO_FUGA_DEMANDA", "Operario de Fuga de Demanda"));
 
     // Definición de usuarios iniciales (uno por cada rol)
+    // Teléfonos: números reales verificados en Twilio Trial
     private static final List<UserData> USERS = List.of(
-            new UserData("12345678", "Administrador BankMind", "admin@bankmind.com", "admin123", "987654321", "ADMIN",
+            new UserData("12345678", "Administrador BankMind", "admin@bankmind.com", "admin123", "934658784", "ADMIN",
                     false),
-            new UserData("23456789", "Ana García López", "morosidad@bankmind.com", "123456", "987654322",
+            new UserData("23456789", "Ana García López", "morosidad@bankmind.com", "123456", "934658784",
                     "OPERARIO_MOROSIDAD", false),
-            new UserData("34567890", "Carlos Pérez Silva", "anomalias@bankmind.com", "123456", "987654323",
+            new UserData("34567890", "Carlos Pérez Silva", "anomalias@bankmind.com", "123456", "960826691",
                     "OPERARIO_ANOMALIAS", false),
-            new UserData("45678901", "María Rodríguez Torres", "demanda@bankmind.com", "123456", "987654324",
+            new UserData("45678901", "María Rodríguez Torres", "demanda@bankmind.com", "123456", "930723537",
                     "OPERARIO_DEMANDA_EFECTIVO", false),
-            new UserData("56789012", "Juan Martínez Vargas", "fuga@bankmind.com", "123456", "987654325",
+            new UserData("56789012", "Juan Martínez Vargas", "fuga@bankmind.com", "123456", "929055707",
                     "OPERARIO_FUGA_DEMANDA", false));
 
     @Override

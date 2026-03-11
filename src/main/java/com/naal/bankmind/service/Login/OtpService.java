@@ -3,6 +3,7 @@ package com.naal.bankmind.service.Login;
 import com.naal.bankmind.entity.Login.OtpVerification;
 import com.naal.bankmind.entity.Login.User;
 import com.naal.bankmind.repository.Login.OtpVerificationRepository;
+import com.naal.bankmind.service.Login.sms.SmsNotificationPort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,12 +16,21 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Servicio de gestión de códigos OTP para autenticación MFA.
+ *
+ * El envío del SMS se delega a {@link SmsNotificationPort} —
+ * no depende directamente de ningún proveedor (Twilio, AWS SNS, etc.).
+ * La implementación concreta se inyecta por Spring según la configuración
+ * {@code twilio.enabled} en application.properties (DIP).
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class OtpService {
 
     private final OtpVerificationRepository otpRepository;
+    private final SmsNotificationPort smsNotificationPort;
 
     @Value("${otp.expiration-minutes}")
     private int otpExpirationMinutes;
@@ -32,13 +42,11 @@ public class OtpService {
 
     @Transactional
     public OtpVerification generateOtp(User user) {
-        // Invalidar OTPs anteriores del usuario
+        // 1. Invalidar OTPs anteriores del usuario
         otpRepository.invalidateAllUserOtps(user);
 
-        // Generar código de 6 dígitos
-        String code = String.format("%06d", secureRandom.nextInt(1000000));
-
-        // Generar token MFA único
+        // 2. Generar código de 6 dígitos criptográficamente seguro
+        String code = String.format("%06d", secureRandom.nextInt(1_000_000));
         String mfaToken = UUID.randomUUID().toString();
 
         OtpVerification otp = OtpVerification.builder()
@@ -52,32 +60,11 @@ public class OtpService {
 
         OtpVerification savedOtp = otpRepository.save(otp);
 
-        // Simular envío de SMS (en producción usar Twilio, AWS SNS, etc.)
-        sendSms(user.getPhone(), code);
+        // 3. Enviar SMS — la implementación real (Twilio) o de consola
+        // se resuelve en tiempo de ejecución por Spring (DIP)
+        smsNotificationPort.sendOtp(user.getPhone(), code, otpExpirationMinutes);
 
         return savedOtp;
-    }
-
-    private void sendSms(String phone, String code) {
-        // En desarrollo: solo logueamos el código
-        // En producción: integrar con servicio de SMS real
-        log.info("================================================");
-        log.info("📱 SMS ENVIADO (SIMULADO)");
-        log.info("📞 Teléfono: {}", maskPhone(phone));
-        log.info("🔐 Código OTP: {}", code);
-        log.info("⏰ Válido por {} minutos", otpExpirationMinutes);
-        log.info("================================================");
-    }
-
-    private String maskPhone(String phone) {
-        if (phone == null || phone.length() < 4) {
-            return "****";
-        }
-        return "****" + phone.substring(phone.length() - 4);
-    }
-
-    public String getPhoneHint(String phone) {
-        return maskPhone(phone);
     }
 
     @Transactional
@@ -91,22 +78,18 @@ public class OtpService {
 
         OtpVerification otp = otpOpt.get();
 
-        // Verificar si expiró
         if (otp.isExpired()) {
             log.warn("OTP expirado para usuario: {}", otp.getUser().getEmail());
             return Optional.empty();
         }
 
-        // Verificar intentos máximos
         if (otp.hasExceededMaxAttempts(maxAttempts)) {
             log.warn("Máximo de intentos excedido para usuario: {}", otp.getUser().getEmail());
             return Optional.empty();
         }
 
-        // Incrementar intentos
         otp.setAttempts(otp.getAttempts() + 1);
 
-        // Verificar código
         if (!otp.getCode().equals(code)) {
             otpRepository.save(otp);
             log.warn("Código OTP incorrecto. Intento {} de {} para usuario: {}",
@@ -114,12 +97,15 @@ public class OtpService {
             return Optional.empty();
         }
 
-        // Código correcto - marcar como verificado
         otp.setVerified(true);
         otpRepository.save(otp);
 
         log.info("✅ OTP verificado exitosamente para usuario: {}", otp.getUser().getEmail());
         return Optional.of(otp);
+    }
+
+    public String getPhoneHint(String phone) {
+        return maskPhone(phone);
     }
 
     public int getRemainingAttempts(String mfaToken) {
@@ -131,5 +117,11 @@ public class OtpService {
     @Transactional
     public void cleanupExpiredOtps() {
         otpRepository.deleteExpiredOtps(LocalDateTime.now());
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 4)
+            return "****";
+        return "****" + phone.substring(phone.length() - 4);
     }
 }

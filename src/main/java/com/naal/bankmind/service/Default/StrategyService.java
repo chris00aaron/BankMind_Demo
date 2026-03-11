@@ -11,9 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import jakarta.persistence.EntityManager;
-import java.math.BigDecimal;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Servicio para la vista de Estrategias de Mitigación de Riesgo.
@@ -41,6 +39,7 @@ public class StrategyService {
         String nativeQuery = """
                 WITH latest AS (
                     SELECT dp.id_prediction, dp.default_probability, dp.estimated_loss, dp.main_risk_factor,
+                           mh.record_id, mh.pay_x,
                            ROW_NUMBER() OVER (PARTITION BY mh.record_id ORDER BY dp.date_prediction DESC) as rn
                     FROM default_prediction dp
                     JOIN monthly_history mh ON mh.id_historial = dp.id_historial
@@ -52,11 +51,11 @@ public class StrategyService {
                         estimated_loss,
                         main_risk_factor,
                         CASE
-                            WHEN default_probability >= 0.90 THEN 'Pérdida'
-                            WHEN default_probability >= 0.60 THEN 'Dudoso'
-                            WHEN default_probability >= 0.25 THEN 'Deficiente'
-                            WHEN default_probability >= 0.05 THEN 'CPP'
-                            ELSE 'Normal'
+                            WHEN pay_x <= 0 THEN 'Normal'
+                            WHEN pay_x = 1  THEN 'CPP'
+                            WHEN pay_x = 2  THEN 'Deficiente'
+                            WHEN pay_x <= 4  THEN 'Dudoso'
+                            ELSE 'Pérdida'
                         END as segmento
                     FROM latest WHERE rn = 1
                 )
@@ -163,7 +162,7 @@ public class StrategyService {
         String nativeQuery = """
                 WITH latest AS (
                     SELECT dp.default_probability, dp.estimated_loss,
-                           mh.bill_amt_x,
+                           mh.bill_amt_x, mh.record_id, mh.pay_x,
                            ROW_NUMBER() OVER (PARTITION BY mh.record_id ORDER BY dp.date_prediction DESC) as rn
                     FROM default_prediction dp
                     JOIN monthly_history mh ON mh.id_historial = dp.id_historial
@@ -175,11 +174,11 @@ public class StrategyService {
                         estimated_loss,
                         bill_amt_x,
                         CASE
-                            WHEN default_probability >= 0.90 THEN 'Pérdida'
-                            WHEN default_probability >= 0.60 THEN 'Dudoso'
-                            WHEN default_probability >= 0.25 THEN 'Deficiente'
-                            WHEN default_probability >= 0.05 THEN 'CPP'
-                            ELSE 'Normal'
+                            WHEN pay_x <= 0 THEN 'Normal'
+                            WHEN pay_x = 1  THEN 'CPP'
+                            WHEN pay_x = 2  THEN 'Deficiente'
+                            WHEN pay_x <= 4  THEN 'Dudoso'
+                            ELSE 'Pérdida'
                         END as segmento
                     FROM latest WHERE rn = 1
                 )
@@ -194,7 +193,7 @@ public class StrategyService {
 
         if (cuentas.isEmpty()) {
             return new SimulationResult(segmento, campaign.getCampaignName(),
-                    0, 0, 0, 0, 0, 0, 0, 0, 0);
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
 
         // Obtener totales globales para calcular tasa de morosidad
@@ -254,6 +253,16 @@ public class StrategyService {
                 ? Math.round((1.0 - perdidaProyectada / perdidaActual) * 1000.0) / 10.0
                 : 0;
 
+        double probPromedioActual = cuentas.size() > 0
+                ? (cuentas.stream().mapToDouble(c -> (1.0 - ((Number) c[0]).doubleValue())).sum() / cuentas.size())
+                        * 100
+                : 0;
+
+        double probPromedioProyectada = cuentas.size() > 0
+                ? (cuentas.stream().mapToDouble(c -> (1.0 - ((Number) c[0]).doubleValue() * (1.0 - reductionFactor)))
+                        .sum() / cuentas.size()) * 100
+                : 0;
+
         log.info("Simulación: pérdida {} → {}, morosidad {}% → {}%, ROI: {}x",
                 perdidaActual, perdidaProyectada, tasaActual, tasaProyectada, roi);
 
@@ -264,6 +273,8 @@ public class StrategyService {
                 Math.round(perdidaActual * 100.0) / 100.0,
                 Math.round(perdidaProyectada * 100.0) / 100.0,
                 reduccionPct,
+                Math.round(probPromedioActual * 10.0) / 10.0,
+                Math.round(probPromedioProyectada * 10.0) / 10.0,
                 tasaActual,
                 tasaProyectada,
                 cuentasMejoradas,

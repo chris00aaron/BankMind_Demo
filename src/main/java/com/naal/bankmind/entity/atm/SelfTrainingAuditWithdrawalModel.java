@@ -73,6 +73,10 @@ public class SelfTrainingAuditWithdrawalModel {
     @Column(name = "hyperparameters", nullable = false, columnDefinition = "jsonb")
     private Map<String, Object> hyperparameters;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "psi_baseline", columnDefinition = "jsonb")
+    private Map<String, PSIBin> psiBaseline;  
+
     @JsonBackReference("audit-dataset")
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "id_dataset_withdrawal_prediction", // Columna de la tabla dataset_withdrawal_prediction (FK)

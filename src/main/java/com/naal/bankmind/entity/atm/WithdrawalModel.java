@@ -27,7 +27,7 @@ import lombok.ToString;
 
 @Getter
 @Setter
-@ToString(exclude = { "selfTrainingAudit", "predictions" })
+@ToString(exclude = { "selfTrainingAudit", "predictions", "performanceMonitorModelAtm" })
 @Entity
 @Table(name = "withdrawal_models", schema = "public")
 public class WithdrawalModel {
@@ -73,4 +73,8 @@ public class WithdrawalModel {
     @JsonBackReference("atm-predictions")
     @OneToMany(mappedBy = "withdrawalModel", fetch = FetchType.LAZY)
     private List<DailyWithdrawalPrediction> predictions = new ArrayList<>();
+
+    @JsonBackReference("atm-performance-monitor")
+    @OneToMany(mappedBy = "withdrawalModel", fetch = FetchType.LAZY)
+    private List<PerformanceMonitorModelAtm> performanceMonitorModelAtm;
 }

@@ -29,12 +29,14 @@ public interface ChurnPredictionsRepository extends JpaRepository<ChurnPredictio
 
     /**
      * Gets the latest prediction for each customer in a list of IDs.
-     * Uses a subquery to find the max prediction date per customer.
-     * Batch query for dashboard — eliminates N+1.
+     * Uses MAX(id) per customer group to safely pick one row per customer,
+     * avoiding duplicate-date issues and cross-join problems in PostgreSQL.
      */
-    @Query("SELECT cp FROM ChurnPredictions cp WHERE cp.predictionDate = " +
-            "(SELECT MAX(cp2.predictionDate) FROM ChurnPredictions cp2 " +
-            "WHERE cp2.customer.idCustomer = cp.customer.idCustomer) " +
-            "AND cp.customer.idCustomer IN :customerIds")
+    @Query("SELECT cp FROM ChurnPredictions cp " +
+            "WHERE cp.idChurnPrediction IN (" +
+            "  SELECT MAX(cp2.idChurnPrediction) FROM ChurnPredictions cp2 " +
+            "  WHERE cp2.customer.idCustomer IN :customerIds " +
+            "  GROUP BY cp2.customer.idCustomer" +
+            ")")
     List<ChurnPredictions> findLatestByCustomerIds(@Param("customerIds") List<Long> customerIds);
 }

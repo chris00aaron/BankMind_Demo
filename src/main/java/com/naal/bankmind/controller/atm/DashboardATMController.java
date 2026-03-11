@@ -2,8 +2,6 @@ package com.naal.bankmind.controller.atm;
 
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -12,16 +10,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.naal.bankmind.dto.atm.response.ResumeOperativoDTO;
-import com.naal.bankmind.dto.atm.response.RetiroEfectivoAtmPrediccionDTO;
-import com.naal.bankmind.dto.atm.response.RetiroEfectivoAtmPrediccionResumenDTO;
-import com.naal.bankmind.dto.atm.response.RetiroHistoricoDTO;
-import com.naal.bankmind.dto.atm.response.SegmentacionRetiroDTO;
-import com.naal.bankmind.mapper.atm.DailyWithdrawalPredictionMapper;
-import com.naal.bankmind.service.atm.AtmFeaturesService;
-import com.naal.bankmind.service.atm.AtmService;
-import com.naal.bankmind.service.atm.DailyWithdrawalPredictionService;
-import com.naal.bankmind.utils.atm.ModelConfidenceService;
+import com.naal.bankmind.atm.application.usecase.DashboardOrchestrator;
+import com.naal.bankmind.dto.Shared.ApiResponse;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -37,34 +27,14 @@ import lombok.extern.log4j.Log4j2;
 @RestController
 @RequestMapping("/atm/dashboard")
 public class DashboardATMController {
-
-    private final DailyWithdrawalPredictionService dailyWithdrawalPredictionService;
-    private final AtmFeaturesService atmFeaturesService;
-    private final AtmService atmService;
-    private final ModelConfidenceService modelConfidenceService;
+    private final DashboardOrchestrator dashboardOrchestrator;
 
     @GetMapping
     public ResponseEntity<?> obtenerRetirosPorFecha() {
+        var dashboard = dashboardOrchestrator.generarDashboard();
         LocalDate fecha = LocalDate.of(2025, 12, 2);
-        var predictionBrutas = dailyWithdrawalPredictionService.obtenerPrediccionesPorFecha(fecha);
+        String mensaje = String.format("Dashboard generado para fecha: %s", fecha);
 
-        var predicciones = predictionBrutas.stream().map(DailyWithdrawalPredictionMapper::toRetiroEfectivoAtmPrediccionDTO).toList();
-        var resumen = RetiroEfectivoAtmPrediccionResumenDTO.from(predicciones);
-        var resumenOperativo = atmService.obtenerResumenOperatividad();
-        var retirosHistoricos = atmFeaturesService.predecirBasadoEnHistoricoComparadoConPrediccion((short) fecha.getDayOfMonth(), (short) fecha.getMonthValue(), predicciones);
-        var atmsConPotencialDeFaltaStock = atmService.contabilizarAtmsConPotencialDeFaltaStock(fecha, predicciones);
-        var segmentacionRetiro = SegmentacionRetiroDTO.from(predictionBrutas);
-        var featuresImportancia = modelConfidenceService.mostrarImportanciaFeatures();
-        return ResponseEntity.ok(new dtoDashboard(resumen,resumenOperativo,atmsConPotencialDeFaltaStock,predicciones,retirosHistoricos, featuresImportancia, segmentacionRetiro));
+        return ResponseEntity.ok(ApiResponse.success(mensaje, dashboard));
     }
-    
-    public record dtoDashboard(
-        RetiroEfectivoAtmPrediccionResumenDTO resumenRetiroEfectivoAtm,
-        ResumeOperativoDTO resumenOperativoAtms,
-        Long atmsConPotencialDeFaltaStock,
-        List<RetiroEfectivoAtmPrediccionDTO> retirosPredichos,
-        List<RetiroHistoricoDTO> retirosHistoricos,
-        Map<String, Object> featuresImportancia,
-        SegmentacionRetiroDTO segmentacionRetiro
-    ) {}
 }

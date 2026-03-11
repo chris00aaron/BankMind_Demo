@@ -1,6 +1,7 @@
 package com.naal.bankmind.entity.atm;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -46,16 +47,16 @@ public class AtmCurrentStatus {
         private BigDecimal currentBalance = BigDecimal.ZERO;
 
         @Column(name = "last_transaction_date")
-        private LocalDateTime lastTransactionDate;
+        private LocalDate lastTransactionDate;
 
         @Column(name = "last_withdrawal_date")
-        private LocalDateTime lastWithdrawalDate;
+        private LocalDate lastWithdrawalDate;
 
         @Column(name = "last_deposit_date")
-        private LocalDateTime lastDepositDate;
+        private LocalDate lastDepositDate;
 
         @Column(name = "last_reload_date")
-        private LocalDateTime lastReloadDate;
+        private LocalDate lastReloadDate;
 
         @JsonBackReference("syncLog-atmStatuses")
         @ManyToOne(fetch = FetchType.LAZY)

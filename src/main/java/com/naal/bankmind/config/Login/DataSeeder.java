@@ -145,6 +145,7 @@ public class DataSeeder implements CommandLineRunner {
                 user.setPhone(userData.phone());
                 user.setRol(role);
                 user.setEnable(true);
+                user.setMustChangePassword(userData.mustChangePassword());
                 user.setCreatedAt(LocalDateTime.now());
                 user.setUpdatedAt(LocalDateTime.now());
 

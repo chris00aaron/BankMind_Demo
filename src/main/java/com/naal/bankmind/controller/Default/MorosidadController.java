@@ -99,6 +99,7 @@ public class MorosidadController {
                 entry.put("payX", 0);
             }
             // Ordenado ASC → la última sobrescribe → queda la más reciente del día
+            entry.put("mainRiskFactor", pred.getMainRiskFactor() != null ? pred.getMainRiskFactor() : "");
             porDia.put(dateKey, entry);
         }
 
@@ -113,5 +114,18 @@ public class MorosidadController {
     public ResponseEntity<List<ClientPaymentHistoryDTO>> getPaymentHistory(
             @PathVariable Long recordId) {
         return ResponseEntity.ok(morosidadService.getPaymentHistory(recordId));
+    }
+
+    /**
+     * Retorna la última predicción guardada para una cuenta sin recalcular.
+     * Usado para cargar datos históricos desde el dashboard al hacer clic en un
+     * cliente.
+     * GET /api/morosidad/prediccion/{recordId}/ultima
+     */
+    @GetMapping("/prediccion/{recordId}/ultima")
+    public ResponseEntity<ClientePredictionDetailDTO> getLastPrediction(
+            @PathVariable Long recordId) {
+        ClientePredictionDetailDTO result = morosidadService.getLastPredictionByRecordId(recordId);
+        return ResponseEntity.ok(result);
     }
 }

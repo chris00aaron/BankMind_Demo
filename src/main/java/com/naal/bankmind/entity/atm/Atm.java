@@ -48,6 +48,12 @@ public class Atm {
     )
     private LocationType locationType;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     @JsonBackReference("atm-transactions")
     @OneToMany(mappedBy = "atm", fetch = FetchType.LAZY)
     private List<DailyAtmTransaction> transactions = new ArrayList<>();

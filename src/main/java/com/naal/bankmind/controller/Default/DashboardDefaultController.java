@@ -25,4 +25,24 @@ public class DashboardDefaultController {
         DashboardMorosidadDTO dashboard = dashboardService.getDashboardData();
         return ResponseEntity.ok(dashboard);
     }
+
+    /**
+     * Obtiene los clientes con paginación y filtros.
+     */
+    @GetMapping("/clientes")
+    public ResponseEntity<org.springframework.data.domain.Page<com.naal.bankmind.dto.Default.Response.DashboardMorosidadDTO.ClienteAltoRiesgo>> getDashboardClients(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String clasificacionSBS,
+            @RequestParam(defaultValue = "probabilidadPago") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) String educacion,
+            @RequestParam(required = false) Integer edadMin,
+            @RequestParam(required = false) Integer edadMax) {
+
+        var result = dashboardService.getDashboardClientsPaginated(
+                page, size, nombre, clasificacionSBS, sortBy, sortDir, educacion, edadMin, edadMax);
+        return ResponseEntity.ok(result);
+    }
 }

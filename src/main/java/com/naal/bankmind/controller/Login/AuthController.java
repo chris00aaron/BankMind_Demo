@@ -13,6 +13,7 @@ import com.naal.bankmind.service.Login.JwtService;
 import com.naal.bankmind.service.Login.PasswordResetService;
 
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -43,9 +44,13 @@ public class AuthController {
      * Envía código OTP al teléfono registrado
      */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
         try {
-            LoginResponse response = authService.authenticate(request);
+            String ipAddress = getClientIp(httpRequest);
+            String userAgent = httpRequest.getHeader("User-Agent");
+            LoginResponse response = authService.authenticate(request, ipAddress, userAgent);
             return ResponseEntity.ok(ApiResponse.success("Código de verificación enviado", response));
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(401)
@@ -62,9 +67,12 @@ public class AuthController {
     @PostMapping("/verify-otp")
     public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(
             @Valid @RequestBody VerifyOtpRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response) {
         try {
-            AuthResponse authResponse = authService.verifyOtpAndLogin(request);
+            String ipAddress = getClientIp(httpRequest);
+            String userAgent = httpRequest.getHeader("User-Agent");
+            AuthResponse authResponse = authService.verifyOtpAndLogin(request, ipAddress, userAgent);
 
             // Configurar cookies httpOnly seguras
             addSecureCookie(response, "accessToken", authResponse.getAccessToken(),
@@ -207,5 +215,13 @@ public class AuthController {
         cookie.setPath("/");
         cookie.setMaxAge(0);
         response.addCookie(cookie);
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

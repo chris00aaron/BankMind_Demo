@@ -27,7 +27,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DataSeeder { //implements CommandLineRunner 
+public class DataSeeder implements CommandLineRunner {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
@@ -42,7 +42,13 @@ public class DataSeeder { //implements CommandLineRunner
             new RoleData("OPERARIO_DEMANDA_EFECTIVO", "Operario de Demanda de Efectivo"),
             new RoleData("OPERARIO_FUGA_DEMANDA", "Operario de Fuga de Demanda"));
 
-    // Definición de usuarios iniciales (uno por cada rol)
+    /*
+     * Definición de usuarios iniciales (uno por cada rol).
+     * NOTA: Los campos sensibles (dni, fullName, phone) están aquí en texto plano
+     * para facilitar la lectura y modificación. Al usar userRepository.save(user),
+     * JPA (Hibernate) aplicará automáticamente el AttributeEncryptor y guardará
+     * los datos encriptados en la base de datos.
+     */
     private static final List<UserData> USERS = List.of(
             new UserData("12345678", "Administrador BankMind", "admin@bankmind.com", "admin123", "987654321", "ADMIN",
                     false),
@@ -55,8 +61,8 @@ public class DataSeeder { //implements CommandLineRunner
             new UserData("56789012", "Juan Martínez Vargas", "fuga@bankmind.com", "123456", "987654325",
                     "OPERARIO_FUGA_DEMANDA", false));
 
-    //@Override
-    //@Transactional
+    @Override
+    @Transactional
     public void run(String... args) {
         log.info("🚀 Iniciando carga de datos iniciales...");
 
@@ -144,6 +150,7 @@ public class DataSeeder { //implements CommandLineRunner
                 user.setPhone(userData.phone());
                 user.setRol(role);
                 user.setEnable(true);
+                user.setMustChangePassword(userData.mustChangePassword());
                 user.setCreatedAt(LocalDateTime.now());
                 user.setUpdatedAt(LocalDateTime.now());
 

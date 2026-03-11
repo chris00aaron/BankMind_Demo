@@ -2,7 +2,7 @@ package com.naal.bankmind.entity.atm;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Map;
+import java.util.List;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -57,7 +57,7 @@ public class DatasetWithdrawalPrediction {
     private LocalDate endDate;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, Object> features;
+    private List<String> features;
 
     @Column(length = 100)
     private String target;

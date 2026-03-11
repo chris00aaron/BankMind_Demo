@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.naal.bankmind.atm.infrastructure.bd.projections.AtmAvgProjection;
 import com.naal.bankmind.atm.infrastructure.bd.projections.AtmStatusBalanceProjection;
 import com.naal.bankmind.atm.infrastructure.bd.projections.WithdrawalAvgProjection;
 import com.naal.bankmind.entity.atm.Atm;
@@ -52,4 +53,9 @@ public interface JpaAtmRepository extends JpaRepository<Atm, Long> {
     @Query(value = "SELECT * FROM fn_atm_status_balance(:requested_prediction_date)", nativeQuery = true)
     List<AtmStatusBalanceProjection> obtenerEstadoYSaldoDeCajero(
         @Param("requested_prediction_date") LocalDate predictionDate);
+
+    @Query(value = "SELECT * FROM fn_atm_features_avg(:day, :month)", nativeQuery = true)
+    List<AtmAvgProjection> obtenerPromediosAtmFeatures(
+        @Param("day") short day,
+        @Param("month") short month);
 }

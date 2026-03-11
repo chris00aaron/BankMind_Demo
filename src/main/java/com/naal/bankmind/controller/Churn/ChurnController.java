@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * REST Controller for Customer Churn Predictions.
@@ -284,5 +285,16 @@ public class ChurnController {
             return ResponseEntity.internalServerError().body(result);
         }
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /api/v1/churn/executive-metrics
+     * Gets high-level executive business metrics for the CEO Dashboard.
+     *
+     * @return Map with monetary KPIs, ROI, and strategic insights.
+     */
+    @GetMapping("/executive-metrics")
+    public ResponseEntity<Map<String, Object>> getExecutiveMetrics() {
+        return ResponseEntity.ok(churnService.getExecutiveBusinessMetrics());
     }
 }

@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.naal.bankmind.atm.application.dto.response.WeatherDTO;
+import com.naal.bankmind.atm.domain.ports.in.ListarClimasDisponiblesUseCase;
 import com.naal.bankmind.dto.Shared.ApiResponse;
-import com.naal.bankmind.dto.atm.response.WeatherResponseDTO;
-import com.naal.bankmind.service.atm.WeatherService;
 
 import lombok.AllArgsConstructor;
 
@@ -27,10 +27,10 @@ import lombok.AllArgsConstructor;
 @RequestMapping("/atm/weather")
 public class WeatherController {
 
-    private final WeatherService weatherService;
+    private final ListarClimasDisponiblesUseCase listarClimasDisponiblesUseCase;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<WeatherResponseDTO>>> obtenerTiposDeClima() {
-        return ResponseEntity.ok(ApiResponse.success("Tipos de clima obtenidos correctamente", weatherService.obtenerTiposDeClima()));
+    public ResponseEntity<ApiResponse<List<WeatherDTO>>> obtenerTiposDeClima() {
+        return ResponseEntity.ok(ApiResponse.success("Tipos de clima obtenidos correctamente", listarClimasDisponiblesUseCase.listarClimasDisponibles()));
     }
 }

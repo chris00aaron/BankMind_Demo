@@ -28,4 +28,5 @@ public class CustomerDashboardDTO {
     private Integer tenure; // Years as customer (calculated from id_registration_date)
     private String since; // Year customer registered
     private Integer products; // Number of credit cards/products
+    private String email; // Contact email from customer table
 }

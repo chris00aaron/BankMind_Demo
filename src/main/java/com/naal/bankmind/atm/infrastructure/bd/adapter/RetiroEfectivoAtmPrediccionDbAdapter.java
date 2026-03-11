@@ -9,6 +9,7 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.naal.bankmind.atm.domain.exception.ModeloPrediccionIndisponibleException;
+import com.naal.bankmind.atm.domain.model.ConfidenceInterval;
 import com.naal.bankmind.atm.domain.model.ConfidenceModel;
 import com.naal.bankmind.atm.domain.model.OutputDataPredictionRetiroAtm;
 import com.naal.bankmind.atm.domain.model.RetiroEfectivoAtmPrediccion;
@@ -19,7 +20,6 @@ import com.naal.bankmind.atm.infrastructure.mapper.DailyWithdrawalPredictionMapp
 import com.naal.bankmind.entity.atm.Atm;
 import com.naal.bankmind.entity.atm.DailyWithdrawalPrediction;
 import com.naal.bankmind.entity.atm.WithdrawalModel;
-import com.naal.bankmind.utils.atm.ConfidenceInterval;
 
 import lombok.AllArgsConstructor;
 

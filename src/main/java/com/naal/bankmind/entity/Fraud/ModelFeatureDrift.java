@@ -35,8 +35,9 @@ public class ModelFeatureDrift {
      * Modelo CHAMPION al que pertenece esta medición de drift.
      * FK hacia fraud_models(id_model).
      */
-    @Column(name = "id_model", nullable = false)
-    private Long idModel;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_model", nullable = false)
+    private FraudModels model;
 
     /**
      * Nombre del feature medido: 'amt', 'city_pop', 'age', 'distance_km', 'hour',
@@ -54,7 +55,7 @@ public class ModelFeatureDrift {
      * 0.10-0.25 → Drift moderado (MODERATE) → vigilar
      * > 0.25 → Drift severo (HIGH) → disparar entrenamiento
      */
-    @Column(name = "psi_value", nullable = false, precision = 10, scale = 4)
+    @Column(name = "psi_value", nullable = false, precision = 10, scale = 6)
     private BigDecimal psiValue;
 
     /**

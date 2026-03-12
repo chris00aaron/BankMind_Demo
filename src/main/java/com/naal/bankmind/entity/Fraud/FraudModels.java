@@ -44,8 +44,9 @@ public class FraudModels {
     @Column(name = "is_active")
     private Boolean isActive;
 
-    @Column(name = "predecessor_model_id")
-    private Long predecessorModelId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "predecessor_model_id")
+    private FraudModels predecessorModel;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;

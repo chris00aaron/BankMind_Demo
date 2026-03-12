@@ -133,7 +133,7 @@ public class FraudMonitoringService {
         // Buscar el dataset asociado a este audit mediante JOIN por id_audit
         TrainingAuditDto.TrainingAuditDtoBuilder builder = TrainingAuditDto.builder()
                 .idAudit(a.getIdAudit())
-                .idModel(a.getIdModel())
+                .idModel(a.getModel() != null ? a.getModel().getIdModel() : null)
                 .startTraining(a.getStartTraining())
                 .endTraining(a.getEndTraining())
                 .trainingDurationSeconds(a.getTrainingDurationSeconds() != null
@@ -227,7 +227,7 @@ public class FraudMonitoringService {
         return records.stream()
                 .map(d -> FeatureDriftDto.builder()
                         .idDrift(d.getIdDrift())
-                        .idModel(d.getIdModel())
+                        .idModel(d.getModel() != null ? d.getModel().getIdModel() : null)
                         .featureName(d.getFeatureName())
                         .psiValue(d.getPsiValue())
                         .driftCategory(d.getDriftCategory())
@@ -254,7 +254,7 @@ public class FraudMonitoringService {
 
         return records.stream().map(d -> FeatureDriftDto.builder()
                 .idDrift(d.getIdDrift())
-                .idModel(d.getIdModel())
+                .idModel(d.getModel() != null ? d.getModel().getIdModel() : null)
                 .featureName(d.getFeatureName())
                 .psiValue(d.getPsiValue())
                 .driftCategory(d.getDriftCategory())

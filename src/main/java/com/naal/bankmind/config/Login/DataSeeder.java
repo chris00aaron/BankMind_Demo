@@ -53,7 +53,7 @@ public class DataSeeder implements CommandLineRunner {
                     "OPERARIO_ANOMALIAS", false),
             new UserData("45678901", "Juan Chuiz Osorio", "escorpioyvirgo18@gmail.com", "123456", "930723537",
                     "OPERARIO_DEMANDA_EFECTIVO", false),
-            new UserData("56789012", "Juan Martínez Vargas", "fuga@bankmind.com", "123456", "929055707",
+            new UserData("56789012", "Juan Martínez Vargas", "polociprianouns@gmail.com", "123456", "929055707",
                     "OPERARIO_FUGA_DEMANDA", false));
 
     @Override

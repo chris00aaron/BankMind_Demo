@@ -58,6 +58,14 @@ public class OtpService {
         OtpVerification savedOtp = otpRepository.save(otp);
 
         // 3. Enviar código OTP por email
+        log.info("\n---------------------------------------- Generando OTP para usuario ----------------------------------------");
+        log.info("Código OTP generado: {}", code);
+        log.info("MFA Token generado: {}", mfaToken);
+        log.info("Email del usuario: {}", user.getEmail());
+        log.info("Tiempo de expiración: {}", otpExpirationMinutes);
+        log.info("----------------------------------------------------------------------------------------------------------\n");
+
+        // 4. Enviar código OTP por email
         otpEmailService.sendOtpEmail(user.getEmail(), code, otpExpirationMinutes);
 
         return savedOtp;

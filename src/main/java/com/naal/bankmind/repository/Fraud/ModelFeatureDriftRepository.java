@@ -21,7 +21,7 @@ public interface ModelFeatureDriftRepository extends JpaRepository<ModelFeatureD
          * Obtiene el historial de PSI de un modelo, ordenado por fecha ascendente.
          * Query principal para la gráfica de PSI Evolution.
          */
-        List<ModelFeatureDrift> findByIdModelOrderByMeasuredAtAsc(Long idModel);
+        List<ModelFeatureDrift> findByModel_IdModelOrderByMeasuredAtAsc(Long idModel);
 
         /**
          * Obtiene las mediciones de drift de los últimos N días para un modelo.
@@ -29,7 +29,7 @@ public interface ModelFeatureDriftRepository extends JpaRepository<ModelFeatureD
          */
         @Query("""
                             SELECT d FROM ModelFeatureDrift d
-                            WHERE d.idModel = :idModel
+                            WHERE d.model.idModel = :idModel
                               AND d.measuredAt >= :since
                             ORDER BY d.measuredAt ASC
                         """)
@@ -43,11 +43,11 @@ public interface ModelFeatureDriftRepository extends JpaRepository<ModelFeatureD
          */
         @Query("""
                             SELECT d FROM ModelFeatureDrift d
-                            WHERE d.idModel = :idModel
+                            WHERE d.model.idModel = :idModel
                               AND d.measuredAt = (
                                   SELECT MAX(d2.measuredAt)
                                   FROM ModelFeatureDrift d2
-                                  WHERE d2.idModel = :idModel AND d2.featureName = d.featureName
+                                  WHERE d2.model.idModel = :idModel AND d2.featureName = d.featureName
                               )
                         """)
         List<ModelFeatureDrift> findLatestPerFeatureByModel(@Param("idModel") Long idModel);
@@ -59,7 +59,7 @@ public interface ModelFeatureDriftRepository extends JpaRepository<ModelFeatureD
          */
         @Query("""
                             SELECT COUNT(d) > 0 FROM ModelFeatureDrift d
-                            WHERE d.idModel = :idModel
+                            WHERE d.model.idModel = :idModel
                               AND d.featureName IN :criticalFeatures
                               AND d.driftCategory = 'HIGH'
                               AND d.measuredAt >= :since

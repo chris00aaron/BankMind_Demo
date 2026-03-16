@@ -75,4 +75,7 @@ public class ChurnTrainingHistory {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @Column(name = "warnings", columnDefinition = "jsonb")
+    private String warnings; // JSON string written by Python performance_monitor.py
 }

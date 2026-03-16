@@ -6,6 +6,8 @@ import com.naal.bankmind.dto.Churn.CampaignLogDTO;
 import com.naal.bankmind.dto.Churn.SegmentDTO;
 import com.naal.bankmind.dto.Churn.TrainResultDTO;
 import com.naal.bankmind.dto.Churn.PerformanceStatusDTO;
+import com.naal.bankmind.dto.Churn.TrainingHistoryPointDTO;
+import com.naal.bankmind.dto.Churn.PredictionBucketDTO;
 import com.naal.bankmind.entity.ChurnPredictions;
 import com.naal.bankmind.entity.RetentionStrategyDef;
 import com.naal.bankmind.service.Churn.ChurnService;
@@ -246,6 +248,30 @@ public class ChurnController {
             return ResponseEntity.internalServerError().body(result);
         }
         return ResponseEntity.ok(result);
+    }
+
+    // ============================================================
+    // MLOPS ANALYTICS CHART ENDPOINTS
+    // ============================================================
+
+    /**
+     * GET /api/v1/churn/mlops/training-evolution
+     * Returns up to 30 training/evaluation events ordered chronologically.
+     * Used by the "Evolución de Métricas" line chart and "Historial" table.
+     */
+    @GetMapping("/mlops/training-evolution")
+    public ResponseEntity<List<TrainingHistoryPointDTO>> getTrainingEvolution() {
+        return ResponseEntity.ok(churnService.getTrainingEvolution());
+    }
+
+    /**
+     * GET /api/v1/churn/mlops/prediction-distribution
+     * Returns churn probability distribution in 10 buckets (0-10% ... 90-100%).
+     * Used by the "Distribución de Probabilidades" histogram.
+     */
+    @GetMapping("/mlops/prediction-distribution")
+    public ResponseEntity<List<PredictionBucketDTO>> getPredictionDistribution() {
+        return ResponseEntity.ok(churnService.getPredictionDistribution());
     }
 
     // ============================================================

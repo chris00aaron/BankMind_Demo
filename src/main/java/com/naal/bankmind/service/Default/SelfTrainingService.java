@@ -106,10 +106,17 @@ public class SelfTrainingService {
             history.setDatasetInfo(datasetInfo);
             history.setBestCadidateModel("Ensemble (Voting)");
 
-            // Enlazar con el modelo actualmente en producción
+            // El objeto se graba al final del flujo (y/o se actualiza en memoria)
+            trainingHistoryRepository.save(history); // Generar ID para tabla join
+
+            // Enlazar con el modelo actualmente en producción y llenar tabla intermedia (model_comparison)
             Optional<TrainingHistory> currentProd = trainingHistoryRepository.findByInProductionTrue();
             if (currentProd.isPresent()) {
-                history.setIdTrainingModel(currentProd.get().getIdTrainingHistory());
+                TrainingHistory prodModel = currentProd.get();
+                history.setIdTrainingModel(prodModel.getIdTrainingHistory());
+                
+                prodModel.getChallengerModels().add(history);
+                trainingHistoryRepository.save(prodModel); // Hibernate gestiona la tabla join
             }
 
             // ================================
@@ -136,6 +143,11 @@ public class SelfTrainingService {
                 }
 
                 log.info("🏆 ¡NUEVO CHAMPION VERIFICADO! Actualizando sistema...");
+
+                // Desvincular de la cache de Hibernate si está para evitar que @Modifying sea pisado
+                if (currentProd.isPresent()) {
+                    currentProd.get().setInProduction(false); 
+                }
 
                 // 1. Desactivar históricos en training_history
                 trainingHistoryRepository.deactivateAllModels();

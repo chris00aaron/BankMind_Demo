@@ -18,6 +18,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -26,7 +27,9 @@ import lombok.ToString;
 @Setter
 @ToString(exclude = { "atm", "weather", "syncLog", "features" })
 @Entity
-@Table(name = "daily_atm_transactions", schema = "public")
+@Table(name = "daily_atm_transactions", schema = "public",
+        uniqueConstraints = @UniqueConstraint(columnNames = { "id_atm", "transaction_date", "transaction_type" })
+)
 public class DailyAtmTransaction {
         @Id
         @Column(name = "id_transaction")

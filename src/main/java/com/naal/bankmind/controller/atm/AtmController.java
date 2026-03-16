@@ -18,8 +18,8 @@ import com.naal.bankmind.dto.Shared.ApiResponse;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
-@CrossOrigin(origins = "http://localhost:5173", allowedHeaders = "*", allowCredentials = "true", 
-    methods = {RequestMethod.GET})
+@CrossOrigin(origins = "http://localhost:5173", allowedHeaders = "*", allowCredentials = "true", methods = {
+        RequestMethod.GET })
 @RestController
 @RequestMapping("/atm/status")
 public class AtmController {

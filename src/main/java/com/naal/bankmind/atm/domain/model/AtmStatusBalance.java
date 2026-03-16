@@ -20,8 +20,8 @@ public record AtmStatusBalance(
         // 0.40 = 50% // Alerta
         // 0.75 = 75% // Normal
         BigDecimal porcentaje = balanceActualPorcentual();
-        if (porcentaje.compareTo(BigDecimal.valueOf(0.15)) < 0) { return "CRITICO";
-        } else if (porcentaje.compareTo(BigDecimal.valueOf(0.50)) < 0) { return "ALERTA";
+        if (porcentaje.compareTo(BigDecimal.valueOf(0.21)) < 0) { return "CRITICO";
+        } else if (porcentaje.compareTo(BigDecimal.valueOf(0.41)) < 0) { return "ALERTA";
         } else { return "NORMAL";}
     }
 }

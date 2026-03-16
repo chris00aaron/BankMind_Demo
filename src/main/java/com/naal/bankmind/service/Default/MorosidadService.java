@@ -316,13 +316,15 @@ public class MorosidadService {
                 ? historial.get(0).getMonthlyPeriod().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
                 : "";
 
+        String sbsCategoryReal = account.getSbsCategoryReal() != null ? account.getSbsCategoryReal() : "Sin clasificar";
+
         return new ClientePredictionDetailDTO(
                 customer.getIdCustomer(), nombre.trim(), customer.getAge(), educacion, estadoCivil, fechaRegistro,
                 account.getRecordId(), account.getLimitBal(), account.getBalance(), account.getEstimatedSalary(),
                 account.getTenure(), antiguedadMeses, cuotasAtrasadas, historialPagos, historial.get(0).getBillAmtX(),
                 ultimoPago, response.isDefault(), probabilidadPago,
                 response.mainRiskFactor(), response.riskFactors(), response.modelVersion(), estimatedLoss,
-                clasificacionSBS, percentilRiesgo, umbralPolitica);
+                clasificacionSBS, sbsCategoryReal, percentilRiesgo, umbralPolitica);
     }
 
     private int calcularCuotasAtrasadas(List<MonthlyHistory> historial) {
@@ -680,5 +682,69 @@ public class MorosidadService {
                     period, payX, monthsLate, mh.getBillAmtX(), mh.getPayAmtX(),
                     mh.getDidCustomerPay(), daysLate, status);
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * Obtiene la última predicción guardada para una cuenta, mapeada al mismo DTO
+     * que retorna predecirMorosidadCompleto, pero sin rellamar al modelo ML.
+     * Usado para cargar datos históricos desde el dashboard.
+     */
+    @Transactional(readOnly = true)
+    public ClientePredictionDetailDTO getLastPredictionByRecordId(Long recordId) {
+        List<DefaultPrediction> predictions = defaultPredictionRepository
+                .findByRecordIdOrderByDateDesc(recordId);
+
+        if (predictions.isEmpty()) {
+            throw new RuntimeException("No hay predicciones guardadas para la cuenta: " + recordId);
+        }
+
+        DefaultPrediction pred = predictions.get(0); // La más reciente
+        MonthlyHistory mh = pred.getMonthlyHistory();
+        AccountDetails account = mh.getAccountDetails();
+        Customer customer = account.getCustomer();
+
+        double probabilidadDefault = pred.getDefaultProbability() != null
+                ? pred.getDefaultProbability().doubleValue()
+                : 0.0;
+        double probabilidadPago = (1.0 - probabilidadDefault) * 100;
+
+        DefaultPolicies policy = policiesRepository.findByIsActiveTrue().orElse(null);
+        Double umbralPolitica = policy != null ? policy.getThresholdApproval().doubleValue() * 100 : 50.0;
+        Integer percentilRiesgo = calcularPercentilRiesgo(probabilidadDefault);
+
+        // Historial de 6 meses para métricas
+        List<MonthlyHistory> historial = monthlyHistoryRepository
+                .findTop6ByRecordIdOrderByMonthlyPeriodDesc(recordId);
+
+        int cuotasAtrasadas = calcularCuotasAtrasadas(historial.isEmpty() ? List.of(mh) : historial);
+        double historialPagos = calcularHistorialPagos(historial.isEmpty() ? List.of(mh) : historial);
+        int antiguedadMeses = calcularAntiguedad(customer);
+
+        String nombre = (customer.getFirstName() != null ? customer.getFirstName() : "") + " " +
+                (customer.getSurname() != null ? customer.getSurname() : "");
+        String educacion = mapEducation(customer.getEducation() != null ? customer.getEducation().getIdEducation() : 4);
+        String estadoCivil = mapMarriage(customer.getMarriage() != null ? customer.getMarriage().getIdMarriage() : 3);
+        String fechaRegistro = customer.getIdRegistrationDate() != null
+                ? customer.getIdRegistrationDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                : "";
+        String ultimoPago = mh.getMonthlyPeriod() != null
+                ? mh.getMonthlyPeriod().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                : "";
+
+        // Reconstruir riskFactors desde mainRiskFactor si no están guardados
+        List<RiskFactorDTO> riskFactors = null;
+        String modelVersion = pred.getIdProductionModel() != null
+                ? pred.getIdProductionModel().getVersion()
+                : "N/A";
+
+        String sbsCategoryReal = account.getSbsCategoryReal() != null ? account.getSbsCategoryReal() : "Sin clasificar";
+
+        return new ClientePredictionDetailDTO(
+                customer.getIdCustomer(), nombre.trim(), customer.getAge(), educacion, estadoCivil, fechaRegistro,
+                account.getRecordId(), account.getLimitBal(), account.getBalance(), account.getEstimatedSalary(),
+                account.getTenure(), antiguedadMeses, cuotasAtrasadas, historialPagos, mh.getBillAmtX(),
+                ultimoPago, pred.getDefaultPaymentNextMonth() != null && pred.getDefaultPaymentNextMonth(),
+                probabilidadPago, pred.getMainRiskFactor(), riskFactors, modelVersion,
+                pred.getEstimatedLoss(), pred.getDefaultCategory(), sbsCategoryReal, percentilRiesgo, umbralPolitica);
     }
 }

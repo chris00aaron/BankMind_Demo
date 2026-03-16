@@ -2,6 +2,7 @@ package com.naal.bankmind.atm.infrastructure.mapper;
 
 import com.naal.bankmind.atm.domain.model.DatasetDetails;
 import com.naal.bankmind.atm.domain.model.RegistroAutoentrenamiento;
+import com.naal.bankmind.atm.domain.model.SelfTrainingAudit;
 import com.naal.bankmind.entity.atm.DatasetWithdrawalPrediction;
 import com.naal.bankmind.entity.atm.SelfTrainingAuditWithdrawalModel;
 
@@ -63,5 +64,28 @@ public class SelfTrainingAuditWithdrawalModelMapper {
         try {
             return Long.parseLong(value.replace(",", "").trim());
         } catch (NumberFormatException e) { return 0L; }
+    }
+
+
+    /**
+     * Convierte un SelfTrainingAuditWithdrawalModel a SelfTrainingAudit.
+     * @param entity El SelfTrainingAuditWithdrawalModel a convertir.
+     * @return El SelfTrainingAudit convertido.
+     */
+    public static SelfTrainingAudit toDomain(SelfTrainingAuditWithdrawalModel entity) {
+        return new SelfTrainingAudit(
+                entity.getId(),
+                entity.getModelName(),
+                entity.getStartTraining(),
+                entity.getEndTraining(),
+                entity.getTrainingDurationMinutes(),
+                entity.getMae(),
+                entity.getMape(),
+                entity.getRmse(),
+                entity.getMarginImprovement(),
+                entity.getHyperparameters(),
+                entity.getPsiBaseline(),
+                entity.getIsProduction()
+        );
     }
 }

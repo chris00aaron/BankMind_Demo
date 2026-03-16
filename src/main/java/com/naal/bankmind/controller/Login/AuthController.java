@@ -6,6 +6,7 @@ import com.naal.bankmind.dto.Login.ForgotPasswordRequest;
 import com.naal.bankmind.dto.Login.LoginRequest;
 import com.naal.bankmind.dto.Login.LoginResponse;
 import com.naal.bankmind.dto.Login.RefreshTokenRequest;
+import com.naal.bankmind.dto.Login.ResendOtpRequest;
 import com.naal.bankmind.dto.Login.VerifyOtpRequest;
 import com.naal.bankmind.dto.Shared.ApiResponse;
 import com.naal.bankmind.service.Login.AuthService;
@@ -13,6 +14,7 @@ import com.naal.bankmind.service.Login.JwtService;
 import com.naal.bankmind.service.Login.PasswordResetService;
 
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -40,12 +42,16 @@ public class AuthController {
 
     /**
      * Paso 1: Login con email y contraseña
-     * Envía código OTP al teléfono registrado
+     * Envía código OTP al correo electrónico registrado
      */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
         try {
-            LoginResponse response = authService.authenticate(request);
+            String ipAddress = getClientIp(httpRequest);
+            String userAgent = httpRequest.getHeader("User-Agent");
+            LoginResponse response = authService.authenticate(request, ipAddress, userAgent);
             return ResponseEntity.ok(ApiResponse.success("Código de verificación enviado", response));
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(401)
@@ -62,9 +68,12 @@ public class AuthController {
     @PostMapping("/verify-otp")
     public ResponseEntity<ApiResponse<AuthResponse>> verifyOtp(
             @Valid @RequestBody VerifyOtpRequest request,
+            HttpServletRequest httpRequest,
             HttpServletResponse response) {
         try {
-            AuthResponse authResponse = authService.verifyOtpAndLogin(request);
+            String ipAddress = getClientIp(httpRequest);
+            String userAgent = httpRequest.getHeader("User-Agent");
+            AuthResponse authResponse = authService.verifyOtpAndLogin(request, ipAddress, userAgent);
 
             // Configurar cookies httpOnly seguras
             addSecureCookie(response, "accessToken", authResponse.getAccessToken(),
@@ -76,6 +85,25 @@ public class AuthController {
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(401)
                     .body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    /**
+     * Reenviar código OTP al correo del usuario
+     */
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ApiResponse<LoginResponse>> resendOtp(
+            @Valid @RequestBody ResendOtpRequest request) {
+        try {
+            LoginResponse response = authService.resendOtp(request.getMfaToken());
+            return ResponseEntity.ok(ApiResponse.success("Código de verificación reenviado", response));
+        } catch (BadCredentialsException e) {
+            return ResponseEntity.status(401)
+                    .body(ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error al reenviar OTP: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Error al reenviar código de verificación"));
         }
     }
 
@@ -207,5 +235,13 @@ public class AuthController {
         cookie.setPath("/");
         cookie.setMaxAge(0);
         response.addCookie(cookie);
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

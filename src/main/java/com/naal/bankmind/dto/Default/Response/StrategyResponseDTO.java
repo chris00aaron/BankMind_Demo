@@ -55,6 +55,8 @@ public class StrategyResponseDTO {
         private double perdidaActual;
         private double perdidaProyectada;
         private double reduccionPerdida; // Porcentaje de reducción
+        private double probPromedioActual; // NUEVO
+        private double probPromedioProyectada; // NUEVO
         private double tasaMorosidadActual;
         private double tasaMorosidadProyectada;
         private long cuentasMejoradas; // Cuentas que cambian de categoría SBS

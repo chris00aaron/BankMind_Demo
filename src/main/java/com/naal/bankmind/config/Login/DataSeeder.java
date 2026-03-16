@@ -27,7 +27,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DataSeeder { //implements CommandLineRunner 
+public class DataSeeder implements CommandLineRunner {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
@@ -44,19 +44,20 @@ public class DataSeeder { //implements CommandLineRunner
 
     // Definición de usuarios iniciales (uno por cada rol)
     private static final List<UserData> USERS = List.of(
-            new UserData("12345678", "Administrador BankMind", "admin@bankmind.com", "admin123", "987654321", "ADMIN",
+            new UserData("12345678", "Administrador BankMind", "investigacioncognitech@gmail.com", "admin123",
+                    "934658784", "ADMIN",
                     false),
-            new UserData("23456789", "Ana García López", "morosidad@bankmind.com", "123456", "987654322",
+            new UserData("23456789", "Aarón Pérez Gularte", "aaron17650@gmail.com", "123456", "934658784",
                     "OPERARIO_MOROSIDAD", false),
-            new UserData("34567890", "Carlos Pérez Silva", "anomalias@bankmind.com", "123456", "987654323",
+            new UserData("34567890", "Angelo Mejía Ramirez", "angelomejia970@gmail.com", "123456", "960826691",
                     "OPERARIO_ANOMALIAS", false),
-            new UserData("45678901", "María Rodríguez Torres", "demanda@bankmind.com", "123456", "987654324",
+            new UserData("45678901", "Juan Chuiz Osorio", "escorpioyvirgo18@gmail.com", "123456", "930723537",
                     "OPERARIO_DEMANDA_EFECTIVO", false),
-            new UserData("56789012", "Juan Martínez Vargas", "fuga@bankmind.com", "123456", "987654325",
+            new UserData("56789012", "Juan Martínez Vargas", "polociprianouns@gmail.com", "123456", "929055707",
                     "OPERARIO_FUGA_DEMANDA", false));
 
-    //@Override
-    //@Transactional
+    @Override
+    @Transactional
     public void run(String... args) {
         log.info("🚀 Iniciando carga de datos iniciales...");
 
@@ -144,6 +145,7 @@ public class DataSeeder { //implements CommandLineRunner
                 user.setPhone(userData.phone());
                 user.setRol(role);
                 user.setEnable(true);
+                user.setMustChangePassword(userData.mustChangePassword());
                 user.setCreatedAt(LocalDateTime.now());
                 user.setUpdatedAt(LocalDateTime.now());
 

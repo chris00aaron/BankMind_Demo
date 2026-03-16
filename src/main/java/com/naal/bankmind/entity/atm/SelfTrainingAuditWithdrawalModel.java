@@ -75,7 +75,7 @@ public class SelfTrainingAuditWithdrawalModel {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "psi_baseline", columnDefinition = "jsonb")
-    private Map<String, Object> psiBaseline;  
+    private Map<String, PSIBin> psiBaseline;  
 
     @JsonBackReference("audit-dataset")
     @OneToOne(fetch = FetchType.LAZY, optional = false)

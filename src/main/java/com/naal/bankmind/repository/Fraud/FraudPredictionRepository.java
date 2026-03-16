@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.entity.Fraud.FraudPredictions;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -88,6 +89,71 @@ public interface FraudPredictionRepository extends JpaRepository<FraudPrediction
                         "WHERE fp.veredicto = :veredicto " +
                         "AND LOWER(t.transNum) LIKE LOWER(CONCAT('%', :search, '%'))")
         Page<FraudPredictions> searchByVeredictoAndTransactionId(
+                        @Param("veredicto") String veredicto,
+                        @Param("search") String search,
+                        Pageable pageable);
+
+        // ==================== MÉTODOS PAGINADOS CON FILTRO DE FECHA
+        // ====================
+
+        /**
+         * Obtener predicciones en un rango de fecha (dateFrom..dateTo), sin otros
+         * filtros.
+         * Usado por el filtro 'Hoy' y '7 días' del frontend.
+         */
+        @Query("SELECT fp FROM FraudPredictions fp " +
+                        "LEFT JOIN FETCH fp.transaction t " +
+                        "LEFT JOIN FETCH t.creditCard cc " +
+                        "LEFT JOIN FETCH cc.customer c " +
+                        "WHERE fp.predictionDate BETWEEN :dateFrom AND :dateTo")
+        Page<FraudPredictions> findByDateRangePaged(
+                        @Param("dateFrom") LocalDateTime dateFrom,
+                        @Param("dateTo") LocalDateTime dateTo,
+                        Pageable pageable);
+
+        /**
+         * Filtrar por veredicto dentro de un rango de fecha.
+         */
+        @Query("SELECT fp FROM FraudPredictions fp " +
+                        "LEFT JOIN FETCH fp.transaction t " +
+                        "LEFT JOIN FETCH t.creditCard cc " +
+                        "LEFT JOIN FETCH cc.customer c " +
+                        "WHERE fp.predictionDate BETWEEN :dateFrom AND :dateTo " +
+                        "AND fp.veredicto = :veredicto")
+        Page<FraudPredictions> findByDateRangeAndVeredicto(
+                        @Param("dateFrom") LocalDateTime dateFrom,
+                        @Param("dateTo") LocalDateTime dateTo,
+                        @Param("veredicto") String veredicto,
+                        Pageable pageable);
+
+        /**
+         * Buscar por transNum dentro de un rango de fecha.
+         */
+        @Query("SELECT fp FROM FraudPredictions fp " +
+                        "LEFT JOIN FETCH fp.transaction t " +
+                        "LEFT JOIN FETCH t.creditCard cc " +
+                        "LEFT JOIN FETCH cc.customer c " +
+                        "WHERE fp.predictionDate BETWEEN :dateFrom AND :dateTo " +
+                        "AND LOWER(t.transNum) LIKE LOWER(CONCAT('%', :search, '%'))")
+        Page<FraudPredictions> searchByDateRangeAndTransactionId(
+                        @Param("dateFrom") LocalDateTime dateFrom,
+                        @Param("dateTo") LocalDateTime dateTo,
+                        @Param("search") String search,
+                        Pageable pageable);
+
+        /**
+         * Filtro conjunto: rango de fecha + veredicto + búsqueda.
+         */
+        @Query("SELECT fp FROM FraudPredictions fp " +
+                        "LEFT JOIN FETCH fp.transaction t " +
+                        "LEFT JOIN FETCH t.creditCard cc " +
+                        "LEFT JOIN FETCH cc.customer c " +
+                        "WHERE fp.predictionDate BETWEEN :dateFrom AND :dateTo " +
+                        "AND fp.veredicto = :veredicto " +
+                        "AND LOWER(t.transNum) LIKE LOWER(CONCAT('%', :search, '%'))")
+        Page<FraudPredictions> searchByDateRangeVeredictoAndTransactionId(
+                        @Param("dateFrom") LocalDateTime dateFrom,
+                        @Param("dateTo") LocalDateTime dateTo,
                         @Param("veredicto") String veredicto,
                         @Param("search") String search,
                         Pageable pageable);

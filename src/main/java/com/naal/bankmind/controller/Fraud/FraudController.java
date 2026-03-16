@@ -4,6 +4,7 @@ import com.naal.bankmind.dto.Fraud.*;
 import com.naal.bankmind.dto.Fraud.DemographicStatsDto;
 import com.naal.bankmind.dto.Fraud.TemporalStatsDto;
 import com.naal.bankmind.service.Fraud.FraudAlertService;
+import com.naal.bankmind.service.Fraud.FraudClusteringService;
 import com.naal.bankmind.service.Fraud.FraudPredictionService;
 import com.naal.bankmind.service.Fraud.FraudStatsService;
 import org.springframework.http.HttpStatus;
@@ -25,14 +26,17 @@ public class FraudController {
     private final FraudPredictionService predictionService;
     private final FraudAlertService alertService;
     private final FraudStatsService statsService;
+    private final FraudClusteringService clusteringService;
 
     public FraudController(
             FraudPredictionService predictionService,
             FraudAlertService alertService,
-            FraudStatsService statsService) {
+            FraudStatsService statsService,
+            FraudClusteringService clusteringService) {
         this.predictionService = predictionService;
         this.alertService = alertService;
         this.statsService = statsService;
+        this.clusteringService = clusteringService;
     }
 
     // ==================== ENDPOINTS DE ALERTAS ====================
@@ -47,9 +51,11 @@ public class FraudController {
             @RequestParam(defaultValue = "score") String sortBy,
             @RequestParam(defaultValue = "desc") String order,
             @RequestParam(required = false) String veredicto,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "all") String dateFilter) {
 
-        FraudAlertsPageDto alerts = alertService.getAlertsPage(page, size, sortBy, order, veredicto, search);
+        FraudAlertsPageDto alerts = alertService.getAlertsPage(
+                page, size, sortBy, order, veredicto, search, dateFilter);
         return ResponseEntity.ok(alerts);
     }
 
@@ -194,5 +200,37 @@ public class FraudController {
     @GetMapping("/stats/temporal")
     public ResponseEntity<List<TemporalStatsDto>> getTemporalStats() {
         return ResponseEntity.ok(statsService.getTemporalStats());
+    }
+
+    // ==================== CLUSTERING DE PERFILES ====================
+
+    /**
+     * GET /api/fraud/stats/clusters
+     * Devuelve los perfiles del ÚLTIMO run de clustering desde la BD.
+     * Respuesta inmediata (BD, no llama Python).
+     */
+    @GetMapping("/stats/clusters")
+    public ResponseEntity<List<ClusterProfileDto>> getClusterProfiles() {
+        return ResponseEntity.ok(clusteringService.getLatestProfiles());
+    }
+
+    /**
+     * POST /api/fraud/stats/clusters/refresh
+     * Dispara el análisis K-Means manualmente (demo + mantenimiento).
+     * Puede tardar varios segundos — el frontend debe mostrar loading.
+     */
+    @PostMapping("/stats/clusters/refresh")
+    public ResponseEntity<?> refreshClusterProfiles() {
+        try {
+            List<ClusterProfileDto> profiles = clusteringService.computeAndPersist();
+            return ResponseEntity.ok(Map.of(
+                    "profiles", profiles,
+                    "message", profiles.isEmpty()
+                            ? "No hay suficientes transacciones ALTO RIESGO para el análisis."
+                            : profiles.size() + " perfiles de fraude generados correctamente."));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error al ejecutar clustering: " + e.getMessage()));
+        }
     }
 }

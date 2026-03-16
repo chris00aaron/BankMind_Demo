@@ -15,14 +15,17 @@ public class SelfTrainingAuditFraud {
     @Column(name = "id_audit")
     private Long idAudit;
 
-    @Column(name = "id_dataset")
-    private Long idDataset;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_dataset", nullable = false)
+    private DatasetFraudPrediction dataset;
 
-    @Column(name = "id_model")
-    private Long idModel;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_model", nullable = false)
+    private FraudModels model;
 
-    @Column(name = "id_champion_model")
-    private Long idChampionModel;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_champion_model")
+    private FraudModels championModel;
 
     @Column(name = "start_training")
     private LocalDateTime startTraining;

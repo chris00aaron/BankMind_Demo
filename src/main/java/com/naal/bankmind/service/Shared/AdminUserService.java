@@ -1,12 +1,14 @@
 package com.naal.bankmind.service.Shared;
 
 import com.naal.bankmind.dto.Login.CreateUserRequest;
+import com.naal.bankmind.dto.Login.UpdateUserRequest;
 import com.naal.bankmind.dto.Shared.RoleDto;
 import com.naal.bankmind.dto.Shared.UserListDto;
 import com.naal.bankmind.entity.Login.Role;
 import com.naal.bankmind.entity.Login.User;
 import com.naal.bankmind.repository.Shared.RoleRepository;
 import com.naal.bankmind.repository.Shared.UserRepository;
+import com.naal.bankmind.service.Login.AuditService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -26,6 +29,7 @@ public class AdminUserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
     /**
      * Obtener todos los usuarios
@@ -53,7 +57,7 @@ public class AdminUserService {
      * Crear un nuevo usuario
      */
     @Transactional
-    public UserListDto createUser(CreateUserRequest request) {
+    public UserListDto createUser(CreateUserRequest request, User adminUser, String ipAddress) {
         // Validar que no exista el email
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Ya existe un usuario con ese email");
@@ -77,11 +81,15 @@ public class AdminUserService {
         user.setPhone(request.getPhone());
         user.setRol(role);
         user.setEnable(true);
+        user.setMustChangePassword(false);
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
         User savedUser = userRepository.save(user);
         log.info("✅ Usuario creado: {} ({})", savedUser.getFullName(), savedUser.getEmail());
+
+        // Registrar en auditoría
+        auditService.logUserCreation(savedUser, adminUser, ipAddress);
 
         return mapToUserListDto(savedUser);
     }
@@ -90,7 +98,7 @@ public class AdminUserService {
      * Actualizar un usuario existente
      */
     @Transactional
-    public UserListDto updateUser(Long userId, CreateUserRequest request) {
+    public UserListDto updateUser(Long userId, UpdateUserRequest request, User adminUser, String ipAddress) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
@@ -111,6 +119,27 @@ public class AdminUserService {
         // Obtener el rol
         Role role = roleRepository.findById(request.getRoleId())
                 .orElseThrow(() -> new IllegalArgumentException("Rol no encontrado"));
+
+        // Detectar cambios y registrar en auditoría
+        if (!Objects.equals(user.getDni(), request.getDni())) {
+            auditService.logUserUpdate(user, adminUser, "dni", user.getDni(), request.getDni(), ipAddress);
+        }
+        if (!Objects.equals(user.getFullName(), request.getFullName())) {
+            auditService.logUserUpdate(user, adminUser, "fullName", user.getFullName(), request.getFullName(),
+                    ipAddress);
+        }
+        if (!Objects.equals(user.getEmail(), request.getEmail())) {
+            auditService.logUserUpdate(user, adminUser, "email", user.getEmail(), request.getEmail(), ipAddress);
+        }
+        if (!Objects.equals(user.getPhone(), request.getPhone())) {
+            auditService.logUserUpdate(user, adminUser, "phone", user.getPhone(), request.getPhone(), ipAddress);
+        }
+        if (!Objects.equals(user.getRol().getIdRole(), request.getRoleId())) {
+            auditService.logUserUpdate(user, adminUser, "role", user.getRol().getName(), role.getName(), ipAddress);
+        }
+        if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+            auditService.logUserUpdate(user, adminUser, "password", "[PROTEGIDO]", "[PROTEGIDO]", ipAddress);
+        }
 
         // Actualizar campos
         user.setDni(request.getDni());

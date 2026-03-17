@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.atm.domain.model.ATMFeatureModel;
 import com.naal.bankmind.atm.domain.model.DynamicFeatures;
@@ -18,7 +18,7 @@ import com.naal.bankmind.entity.atm.AtmFeatures;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
-@Component
+@Repository
 public class ATMFeatureModelDbAdapter implements ATMFeatureModelRepository {
 
     private final JpaAtmFeaturesRepository jpaAtmFeaturesRepository;

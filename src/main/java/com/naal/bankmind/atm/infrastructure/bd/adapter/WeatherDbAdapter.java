@@ -3,7 +3,7 @@ package com.naal.bankmind.atm.infrastructure.bd.adapter;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.atm.domain.model.Weather;
 import com.naal.bankmind.atm.domain.ports.out.repository.WeatherRepository;
@@ -12,7 +12,7 @@ import com.naal.bankmind.atm.infrastructure.bd.jpa.JpaWeatherRepository;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
-@Component
+@Repository
 public class WeatherDbAdapter implements WeatherRepository {
 
     private final JpaWeatherRepository jpaWeatherRepository;

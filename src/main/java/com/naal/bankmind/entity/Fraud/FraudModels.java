@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Data
 @Entity
@@ -32,6 +34,7 @@ public class FraudModels {
 
     // JSONB in Postgres, mapped as String here for simplicity.
     // Could use a custom converter or library for JSON mapping if needed.
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "model_config", columnDefinition = "jsonb")
     private String modelConfig;
 

@@ -28,6 +28,13 @@ public interface ChurnPredictionsRepository extends JpaRepository<ChurnPredictio
     List<ChurnPredictions> findAllWithCustomerByIdCustomer(@Param("idCustomer") Long idCustomer);
 
     /**
+     * Returns all churn probability values for the distribution histogram.
+     * Bucketing is handled in the service layer.
+     */
+    @Query("SELECT cp.churnProbability FROM ChurnPredictions cp WHERE cp.churnProbability IS NOT NULL")
+    List<java.math.BigDecimal> findAllChurnProbabilities();
+
+    /**
      * Gets the latest prediction for each customer in a list of IDs.
      * Uses MAX(id) per customer group to safely pick one row per customer,
      * avoiding duplicate-date issues and cross-join problems in PostgreSQL.

@@ -4,6 +4,7 @@ import com.naal.bankmind.entity.ChurnTrainingHistory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -19,4 +20,10 @@ public interface ChurnTrainingHistoryRepository extends JpaRepository<ChurnTrain
      * Gets the latest model that is currently in production.
      */
     Optional<ChurnTrainingHistory> findTopByInProductionTrueOrderByTrainingDateDesc();
+
+    /**
+     * Gets the 30 most recent training/evaluation records for the evolution chart.
+     * Returns in DESC order; caller reverses for chronological display.
+     */
+    List<ChurnTrainingHistory> findTop30ByOrderByTrainingDateDesc();
 }

@@ -26,6 +26,15 @@ public class CampaignLog {
     @Column(name = "budget_allocated")
     private BigDecimal budgetAllocated;
 
+    @Column(name = "expected_roi")
+    private BigDecimal expectedRoi;
+
+    @Column(name = "targeted_count")
+    private Integer targetedCount;
+
+    @Column(name = "converted_count")
+    private Integer convertedCount;
+
     // FK to retention_strategy_def (already exists in DB)
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_strategy", referencedColumnName = "id_strategy")

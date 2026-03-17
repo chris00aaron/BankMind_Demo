@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.atm.domain.exception.ModeloPrediccionIndisponibleException;
 import com.naal.bankmind.atm.domain.model.ConfidenceInterval;
@@ -24,7 +24,7 @@ import com.naal.bankmind.entity.atm.WithdrawalModel;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
-@Component
+@Repository
 public class RetiroEfectivoAtmPrediccionDbAdapter implements RetiroEfectivoAtmPrediccionRepository {
 
     private final ConfidenceModelRepository confidenceModelRepository;

@@ -1,9 +1,11 @@
 package com.naal.bankmind.atm.infrastructure.bd.migration;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import com.naal.bankmind.atm.infrastructure.bd.jpa.JpaSyncLogRepository;
 import com.naal.bankmind.client.atm.SyntheticDataFeignClient;
@@ -13,59 +15,77 @@ import com.naal.bankmind.entity.atm.SyncLog.SyncStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-@Service
+
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class MigrationService {
 
     private final JpaSyncLogRepository syncLogRepository;
     private final SyntheticDataFeignClient syntheticDataFeignClient;
 
-    //Representa los minutos maximos para considerar que el sync log aun es valido
-    private final Integer UMBRAL_MINUTOS = 30;
+    private static final int UMBRAL_MINUTOS = 30;
 
-    /**
-     * Lanza el proceso de migracion de datos
-     *
-     * @param fechaObjetivo Fecha en formato YYYY-MM-DD
-     */
     public void ejecutarSync() {
-        
-        if (!verificarEstadoValido()) {
-            throw new RuntimeException("Ya se esta ejecutando una sincronizacion de datos");
+        LocalDateTime inicio = LocalDateTime.now();
+        LocalDate fechaObjetivo = LocalDate.now().minusDays(1);
+        log.info("Iniciando ejecucion del sync para la fecha: {}", fechaObjetivo);
+
+        if (!procesoPuedeEjecutarse(fechaObjetivo)) {
+            return;
         }
 
         try {
-            log.info("Iniciando sincronizacion de datos");
-            var response = syntheticDataFeignClient.generatedNewData(LocalDate.of(2026, 2, 3).toString());
-            log.info("{}",response);
+            var response = syntheticDataFeignClient.generatedNewData(fechaObjetivo.toString());
+            log.info("Respuesta del sync: {}", response);
         } catch (Exception e) {
-            log.error("Error al ejecutar la sincronizacion de datos", e);
-            throw new RuntimeException("Error al ejecutar la sincronizacion de datos");
+            log.error("Error al ejecutar la sincronizacion de datos: {}", e.getMessage());
+        } finally {
+            log.info("Fin del sync, duracion: {} segundos", Duration.between(inicio, LocalDateTime.now()).toSeconds());
         }
     }
 
-    private boolean verificarEstadoValido() {
-        SyncLog ultimoSyncLog = syncLogRepository.findTopByOrderBySyncStartDesc().orElseThrow(() -> new RuntimeException("No se encontro un sync log"));
-        
-        SyncStatus status = ultimoSyncLog.getStatus();
-        LocalDateTime syncStart = ultimoSyncLog.getSyncStart(); 
-        LocalDateTime now = LocalDateTime.now();
+    private boolean procesoPuedeEjecutarse(LocalDate fechaObjetivo) {
+        Optional<SyncLog> ultimoSyncLog = syncLogRepository.findTopByOrderBySyncStartDesc();
 
-        if (status != SyncStatus.IN_PROGRESS) {return true;}
-    
-        if (syncStart.isAfter(now.minusMinutes(UMBRAL_MINUTOS))) {return false;}
-        else {
-            notificarErrorEnSyncronizacionFueraDeTiempo(ultimoSyncLog);
+        if (ultimoSyncLog.isEmpty()) {
             return true;
         }
+
+        SyncLog syncLog = ultimoSyncLog.get();
+
+        if (syncLog.getStatus() != SyncStatus.IN_PROGRESS) {
+            return true;
+        }
+
+        if (estaEnEjecucionLegitima(syncLog)) {
+            log.info("Sincronizacion en progreso iniciada a las {}, omitiendo ejecucion", 
+                syncLog.getSyncStart());
+            return false;
+        }
+
+        // Si llega aqui, el proceso lleva mas de UMBRAL_MINUTOS y se considera muerto
+        marcarProcesoComoMuerto(syncLog);
+        return true;
     }
 
-    private void notificarErrorEnSyncronizacionFueraDeTiempo(SyncLog syncLog) {
+    /**
+     * Un proceso se considera en ejecucion legitima si inicio hace menos de UMBRAL_MINUTOS
+     */
+    private boolean estaEnEjecucionLegitima(SyncLog syncLog) {
+        LocalDateTime umbralTiempo = LocalDateTime.now().minusMinutes(UMBRAL_MINUTOS);
+        return syncLog.getSyncStart().isAfter(umbralTiempo);
+    }
+
+    private void marcarProcesoComoMuerto(SyncLog syncLog) {
+        log.warn("Proceso zombie detectado, iniciado a las {} y sin completarse en {} minutos. Marcando como FAILED",
+            syncLog.getSyncStart(), UMBRAL_MINUTOS);
         syncLog.setStatus(SyncStatus.FAILED);
-        syncLog.setErrorMessage("El sync log se encuentra fuera de tiempo");
+        syncLog.setErrorMessage(String.format(
+            "Proceso zombie: sin completarse tras %d minutos desde las %s",
+            UMBRAL_MINUTOS, syncLog.getSyncStart()
+        ));
         syncLog.setSyncEnd(LocalDateTime.now());
         syncLogRepository.save(syncLog);
     }
 }
-

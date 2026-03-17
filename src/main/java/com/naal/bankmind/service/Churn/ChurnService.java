@@ -7,6 +7,9 @@ import com.naal.bankmind.dto.Churn.CustomerDashboardDTO;
 import com.naal.bankmind.dto.Churn.SegmentDTO;
 import com.naal.bankmind.dto.Churn.TrainResultDTO;
 import com.naal.bankmind.dto.Churn.PerformanceStatusDTO;
+import com.naal.bankmind.dto.Churn.TrainingHistoryPointDTO;
+import com.naal.bankmind.dto.Churn.PredictionBucketDTO;
+import java.util.Collections;
 import com.naal.bankmind.entity.AccountDetails;
 import com.naal.bankmind.entity.ChurnPredictions;
 import com.naal.bankmind.entity.ChurnTrainingHistory;
@@ -919,9 +922,9 @@ public class ChurnService {
                 .startDate(c.getStartDate() != null ? c.getStartDate().toLocalDate().toString() : "")
                 .status(c.getStatus())
                 .budgetAllocated(c.getBudgetAllocated() != null ? c.getBudgetAllocated().doubleValue() : 0.0)
-                .expectedRoi(0.0) // Calculated by frontend scenario engine
-                .targetedCount(0) // Can be expanded to count campaign_target entries
-                .convertedCount(0)
+                .expectedRoi(c.getExpectedRoi() != null ? c.getExpectedRoi().doubleValue() : 0.0)
+                .targetedCount(c.getTargetedCount() != null ? c.getTargetedCount() : 0)
+                .convertedCount(c.getConvertedCount() != null ? c.getConvertedCount() : 0)
                 .build()).collect(Collectors.toList());
     }
 
@@ -937,6 +940,14 @@ public class ChurnService {
         campaign.setBudgetAllocated(req.getBudget() != null
                 ? BigDecimal.valueOf(req.getBudget())
                 : BigDecimal.ZERO);
+        campaign.setExpectedRoi(req.getExpectedRoi() != null
+                ? BigDecimal.valueOf(req.getExpectedRoi())
+                : BigDecimal.ZERO);
+        int targetedCount = (req.getTargetedCount() != null && req.getTargetedCount() > 0)
+                ? req.getTargetedCount()
+                : (req.getTargets() != null ? req.getTargets().size() : 0);
+        campaign.setTargetedCount(targetedCount);
+        campaign.setConvertedCount(0);
 
         // Set FK relationships
         if (req.getStrategyId() != null) {
@@ -979,7 +990,7 @@ public class ChurnService {
                 .budgetAllocated(
                         campaign.getBudgetAllocated() != null ? campaign.getBudgetAllocated().doubleValue() : 0.0)
                 .expectedRoi(req.getExpectedRoi() != null ? req.getExpectedRoi() : 0.0)
-                .targetedCount(req.getTargets() != null ? req.getTargets().size() : 0)
+                .targetedCount(targetedCount)
                 .convertedCount(0)
                 .build();
     }
@@ -1244,6 +1255,67 @@ public class ChurnService {
         metrics.put("strategicInsights", strategicInsights);
 
         return metrics;
+    }
+
+    // ============================================================
+    // MLOPS ANALYTICS CHARTS
+    // ============================================================
+
+    /**
+     * Returns the last 30 training/evaluation events ordered chronologically.
+     * Used by the "Evolución de Métricas" and "Historial de Entrenamientos" charts.
+     * Metrics are converted to 0-100 scale for direct frontend display.
+     */
+    public List<TrainingHistoryPointDTO> getTrainingEvolution() {
+        List<ChurnTrainingHistory> raw = churnTrainingHistoryRepository.findTop30ByOrderByTrainingDateDesc();
+        Collections.reverse(raw); // Ascending chronological order for the chart
+
+        return raw.stream().map(h -> {
+            String dateLabel = h.getTrainingDate() != null
+                    ? h.getTrainingDate().toLocalDate().toString()
+                    : "N/A";
+
+            return TrainingHistoryPointDTO.builder()
+                    .date(dateLabel)
+                    .triggerReason(h.getTriggerReason())
+                    .recall(h.getRecallScore() != null ? round2(h.getRecallScore() * 100) : null)
+                    .precision(h.getPrecisionScore() != null ? round2(h.getPrecisionScore() * 100) : null)
+                    .f1Score(h.getF1Score() != null ? round2(h.getF1Score() * 100) : null)
+                    .accuracy(h.getAccuracy() != null ? round2(h.getAccuracy() * 100) : null)
+                    .aucRoc(h.getAucRoc() != null ? round2(h.getAucRoc() * 100) : null)
+                    .inProduction(h.getInProduction())
+                    .evaluatedSamples(h.getEvaluatedSamples())
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * Returns the churn probability distribution grouped into 10 buckets (0-10%, 10-20%, ..., 90-100%).
+     * Used by the "Distribución de Probabilidades" histogram.
+     */
+    public List<PredictionBucketDTO> getPredictionDistribution() {
+        List<java.math.BigDecimal> probabilities = churnPredictionsRepository.findAllChurnProbabilities();
+
+        int[] counts = new int[10];
+        for (java.math.BigDecimal prob : probabilities) {
+            if (prob != null) {
+                int bucket = (int) Math.min(prob.doubleValue() * 10, 9);
+                counts[bucket]++;
+            }
+        }
+
+        List<PredictionBucketDTO> result = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            result.add(PredictionBucketDTO.builder()
+                    .bucket((i * 10) + "-" + ((i + 1) * 10) + "%")
+                    .count(counts[i])
+                    .build());
+        }
+        return result;
+    }
+
+    private double round2(double value) {
+        return Math.round(value * 100.0) / 100.0;
     }
 
     /**

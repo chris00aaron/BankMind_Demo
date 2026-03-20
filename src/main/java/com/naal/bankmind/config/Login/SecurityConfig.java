@@ -50,11 +50,7 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/fraud/confirm/**", // Confirmación de transacciones legítimas
                                 "/api/fraud/block/**", // Reporte de fraude y bloqueo
-                                "/api/v1/churn/**", // Rutas de churn (ajustado para coincidir con el controlador)
-                                "/api/morosidad/**", // Módulo de morosidad unificado
                                 "/error",
-                                // Path de ATM
-                                "atm/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/actuator/health",
                                 // Recursos estáticos (imágenes, CSS, JS, etc.)
                                 "/images/**",

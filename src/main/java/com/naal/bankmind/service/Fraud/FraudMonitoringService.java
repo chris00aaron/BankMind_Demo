@@ -4,7 +4,6 @@ import com.naal.bankmind.dto.Fraud.ChampionModelDto;
 import com.naal.bankmind.dto.Fraud.DriftModelOptionDto;
 import com.naal.bankmind.dto.Fraud.FeatureDriftDto;
 import com.naal.bankmind.dto.Fraud.TrainingAuditDto;
-import com.naal.bankmind.entity.Fraud.FraudModels;
 import com.naal.bankmind.entity.Fraud.ModelFeatureDrift;
 import com.naal.bankmind.entity.Fraud.SelfTrainingAuditFraud;
 import com.naal.bankmind.repository.Fraud.ModelFeatureDriftRepository;

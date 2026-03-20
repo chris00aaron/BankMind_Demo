@@ -5,7 +5,6 @@ import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.entity.Fraud.SelfTrainingAuditFraud;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository

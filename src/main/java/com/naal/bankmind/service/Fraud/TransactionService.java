@@ -8,7 +8,6 @@ import com.naal.bankmind.entity.Customer;
 import com.naal.bankmind.entity.Fraud.Category;
 import com.naal.bankmind.entity.Fraud.CreditCards;
 import com.naal.bankmind.entity.Fraud.OperationalTransactions;
-import com.naal.bankmind.entity.Localization;
 import com.naal.bankmind.repository.Fraud.CategoryRepository;
 import com.naal.bankmind.repository.Fraud.CreditCardRepository;
 import com.naal.bankmind.repository.Fraud.TransactionRepository;

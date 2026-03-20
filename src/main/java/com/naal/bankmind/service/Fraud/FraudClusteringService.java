@@ -4,7 +4,6 @@ import com.naal.bankmind.dto.Fraud.ClusterProfileDto;
 import com.naal.bankmind.dto.Fraud.ClusteringApiResponseDto;
 import com.naal.bankmind.entity.Fraud.FraudClusterProfile;
 import com.naal.bankmind.repository.Fraud.ClusterProfileRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;

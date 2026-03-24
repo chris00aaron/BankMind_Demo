@@ -2,7 +2,7 @@ package com.naal.bankmind.atm.infrastructure.bd.adapter;
 
 import java.util.Map;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.atm.domain.exception.ModeloPrediccionIndisponibleException;
 import com.naal.bankmind.atm.domain.model.ImportanciaCaracteristicasML;
@@ -12,7 +12,7 @@ import com.naal.bankmind.atm.infrastructure.bd.jpa.JpaWithdrawalModelRepository;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
-@Component
+@Repository
 public class ImportanciaCaracteristicasMLDbAdapter implements ImportanciaCaracteristicasMLRepository{
 
     private JpaWithdrawalModelRepository jpaWithdrawalModelRepository;

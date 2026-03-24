@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.math.BigDecimal;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Data
 @Entity
@@ -69,6 +71,7 @@ public class SelfTrainingAuditFraud {
     @Column(name = "optuna_best_f1")
     private BigDecimal optunaBestF1;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "optuna_best_params", columnDefinition = "jsonb")
     private String optunaBestParams;
 
@@ -83,6 +86,7 @@ public class SelfTrainingAuditFraud {
     @Column(name = "triggered_by")
     private String triggeredBy;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "trigger_details", columnDefinition = "jsonb")
     private String triggerDetails;
 

@@ -4,7 +4,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.atm.domain.model.PageResult;
 import com.naal.bankmind.atm.domain.model.RegistroAutoentrenamiento;
@@ -15,7 +15,7 @@ import com.naal.bankmind.atm.infrastructure.mapper.SelfTrainingAuditWithdrawalMo
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
-@Component
+@Repository
 public class RegistroAutoentrenamientoDbAdapter  implements RegistroAutoentrenamientoRepository{
 
     private final JpaSelfTrainingAuditWithdrawalModelRepository jpaSelfTrainingAuditWithdrawalModelRepository;

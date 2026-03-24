@@ -2,7 +2,7 @@ package com.naal.bankmind.atm.infrastructure.bd.adapter;
 
 import java.util.List;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.atm.domain.model.PromedioRetiroHistorico;
 import com.naal.bankmind.atm.domain.ports.out.repository.PromedioRetiroHistoricoRepository;
@@ -12,7 +12,7 @@ import lombok.AllArgsConstructor;
 
 
 @AllArgsConstructor
-@Component
+@Repository
 public class PromedioRetiroHistoricoDbAdapter implements PromedioRetiroHistoricoRepository {
 
     private final JpaAtmRepository jpaAtmRepository;

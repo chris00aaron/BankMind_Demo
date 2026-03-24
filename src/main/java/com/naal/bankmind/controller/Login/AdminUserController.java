@@ -102,13 +102,18 @@ public class AdminUserController {
     }
 
     /**
-     * Eliminar usuario
+     * Desactivar usuario (soft-delete)
      */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable Long id) {
+    @PostMapping("/{id}/deactivate")
+    public ResponseEntity<ApiResponse<Void>> deactivateUser(
+            @PathVariable Long id,
+            Authentication authentication,
+            HttpServletRequest httpRequest) {
         try {
-            adminUserService.deleteUser(id);
-            return ResponseEntity.ok(ApiResponse.success("Usuario eliminado exitosamente"));
+            User adminUser = userDetailsService.findUserByEmail(authentication.getName());
+            String ipAddress = getClientIp(httpRequest);
+            adminUserService.deactivateUser(id, adminUser, ipAddress);
+            return ResponseEntity.ok(ApiResponse.success("Usuario desactivado exitosamente"));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error(e.getMessage()));

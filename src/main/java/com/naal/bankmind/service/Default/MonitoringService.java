@@ -60,14 +60,11 @@ public class MonitoringService {
                     psiThreshold, daysTrigger, trialsDrift);
         }
 
-        // 1. Obtener el modelo activo (el último entrenado exitosamente con baseline)
-        Optional<TrainingHistory> activeModelOpt = trainingHistoryRepository.findAll().stream()
-                .filter(th -> th.getBaselineDistributions() != null)
-                .sorted(Comparator.comparing(TrainingHistory::getIdTrainingHistory).reversed())
-                .findFirst();
+        // 1. Obtener el modelo activo (el actualmente en producción)
+        Optional<TrainingHistory> activeModelOpt = trainingHistoryRepository.findByInProductionTrue();
 
-        if (activeModelOpt.isEmpty()) {
-            log.warn("⚠️ No hay modelo activo con baseline distributions. Saltando monitoreo.");
+        if (activeModelOpt.isEmpty() || activeModelOpt.get().getBaselineDistributions() == null) {
+            log.warn("⚠️ No hay modelo en producción o no tiene baseline distributions. Saltando monitoreo.");
             return;
         }
 

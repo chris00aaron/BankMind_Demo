@@ -2,13 +2,16 @@ package com.naal.bankmind.service.Login;
 
 import com.naal.bankmind.dto.Login.AuditLoginDTO;
 import com.naal.bankmind.dto.Login.AuditUserCreationDTO;
+import com.naal.bankmind.dto.Login.AuditUserDeactivationDTO;
 import com.naal.bankmind.dto.Login.AuditUserUpdateDTO;
 import com.naal.bankmind.entity.Login.AuditLogin;
 import com.naal.bankmind.entity.Login.AuditUserCreation;
+import com.naal.bankmind.entity.Login.AuditUserDeactivation;
 import com.naal.bankmind.entity.Login.AuditUserUpdate;
 import com.naal.bankmind.entity.Login.User;
 import com.naal.bankmind.repository.Login.AuditLoginRepository;
 import com.naal.bankmind.repository.Login.AuditUserCreationRepository;
+import com.naal.bankmind.repository.Login.AuditUserDeactivationRepository;
 import com.naal.bankmind.repository.Login.AuditUserUpdateRepository;
 import com.naal.bankmind.utils.DataMaskingUtil;
 
@@ -35,6 +38,7 @@ public class AuditService {
         private final AuditLoginRepository auditLoginRepository;
         private final AuditUserCreationRepository auditUserCreationRepository;
         private final AuditUserUpdateRepository auditUserUpdateRepository;
+        private final AuditUserDeactivationRepository auditUserDeactivationRepository;
 
         // ──────────────────────────────────────────────────────────────────────────
         // Registro de eventos
@@ -124,6 +128,26 @@ public class AuditService {
                                 adminUser.getEmail(), fieldChanged, updatedUser.getEmail());
         }
 
+        /**
+         * Registra la desactivación de un usuario.
+         */
+        @Transactional(propagation = Propagation.REQUIRES_NEW)
+        public void logUserDeactivation(User deactivatedUser, User adminUser, String ipAddress) {
+                AuditUserDeactivation audit = AuditUserDeactivation.builder()
+                                .deactivatedUserId(deactivatedUser.getIdUser())
+                                .deactivatedUserEmail(DataMaskingUtil.maskEmail(deactivatedUser.getEmail()))
+                                .deactivatedUserRole(deactivatedUser.getRol() != null ? deactivatedUser.getRol().getName() : null)
+                                .adminUserId(adminUser.getIdUser())
+                                .adminEmail(adminUser.getEmail())
+                                .ipAddress(ipAddress)
+                                .deactivatedAt(LocalDateTime.now())
+                                .build();
+
+                auditUserDeactivationRepository.save(audit);
+                log.info("📋 Auditoría Desactivación: Admin {} desactivó usuario {}",
+                                adminUser.getEmail(), deactivatedUser.getEmail());
+        }
+
         // ──────────────────────────────────────────────────────────────────────────
         // Consultas
         // ──────────────────────────────────────────────────────────────────────────
@@ -143,6 +167,12 @@ public class AuditService {
         public List<AuditUserUpdateDTO> getAllUpdateAudits() {
                 return auditUserUpdateRepository.findAllByOrderByUpdatedAtDesc().stream()
                                 .map(this::mapToUpdateDTO)
+                                .collect(Collectors.toList());
+        }
+
+        public List<AuditUserDeactivationDTO> getAllDeactivationAudits() {
+                return auditUserDeactivationRepository.findAllByOrderByDeactivatedAtDesc().stream()
+                                .map(this::mapToDeactivationDTO)
                                 .collect(Collectors.toList());
         }
 
@@ -189,6 +219,19 @@ public class AuditService {
                                 .newValue(entity.getNewValue())
                                 .ipAddress(entity.getIpAddress())
                                 .updatedAt(entity.getUpdatedAt())
+                                .build();
+        }
+
+        private AuditUserDeactivationDTO mapToDeactivationDTO(AuditUserDeactivation entity) {
+                return AuditUserDeactivationDTO.builder()
+                                .id(entity.getIdAuditDeactivation())
+                                .deactivatedUserId(entity.getDeactivatedUserId())
+                                .deactivatedUserEmail(entity.getDeactivatedUserEmail())
+                                .deactivatedUserRole(entity.getDeactivatedUserRole())
+                                .adminUserId(entity.getAdminUserId())
+                                .adminEmail(entity.getAdminEmail())
+                                .ipAddress(entity.getIpAddress())
+                                .deactivatedAt(entity.getDeactivatedAt())
                                 .build();
         }
 }

@@ -35,7 +35,7 @@ public class AdminUserService {
      * Obtener todos los usuarios
      */
     public List<UserListDto> getAllUsers() {
-        return userRepository.findAll().stream()
+        return userRepository.findByEnableTrue().stream()
                 .map(this::mapToUserListDto)
                 .collect(Collectors.toList());
     }
@@ -176,20 +176,30 @@ public class AdminUserService {
     }
 
     /**
-     * Eliminar usuario
+     * Desactivar usuario (soft-delete)
      */
     @Transactional
-    public void deleteUser(Long userId) {
+    public void deactivateUser(Long userId, User adminUser, String ipAddress) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
-        // No permitir eliminar administradores
+        // No permitir desactivar administradores
         if ("ADMIN".equalsIgnoreCase(user.getRol().getCodRole())) {
-            throw new IllegalStateException("No se puede eliminar un usuario administrador");
+            throw new IllegalStateException("No se puede desactivar un usuario administrador");
         }
 
-        userRepository.delete(user);
-        log.info("🗑️ Usuario eliminado: {} ({})", user.getFullName(), user.getEmail());
+        // Validar que no esté ya desactivado
+        if (!user.getEnable()) {
+            throw new IllegalStateException("El usuario ya se encuentra desactivado");
+        }
+
+        user.setEnable(false);
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        log.info("🚫 Usuario desactivado: {} ({})", user.getFullName(), user.getEmail());
+
+        // Registrar en auditoría
+        auditService.logUserDeactivation(user, adminUser, ipAddress);
     }
 
     private UserListDto mapToUserListDto(User user) {

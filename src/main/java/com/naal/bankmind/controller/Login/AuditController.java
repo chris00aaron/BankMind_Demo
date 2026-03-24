@@ -2,6 +2,7 @@ package com.naal.bankmind.controller.Login;
 
 import com.naal.bankmind.dto.Login.AuditLoginDTO;
 import com.naal.bankmind.dto.Login.AuditUserCreationDTO;
+import com.naal.bankmind.dto.Login.AuditUserDeactivationDTO;
 import com.naal.bankmind.dto.Login.AuditUserUpdateDTO;
 import com.naal.bankmind.dto.Shared.ApiResponse;
 import com.naal.bankmind.service.Login.AuditService;
@@ -46,5 +47,14 @@ public class AuditController {
     public ResponseEntity<ApiResponse<List<AuditUserUpdateDTO>>> getUpdateAudits() {
         List<AuditUserUpdateDTO> audits = auditService.getAllUpdateAudits();
         return ResponseEntity.ok(ApiResponse.success("Auditoría de actualización de usuarios obtenida", audits));
+    }
+
+    /**
+     * Obtener todos los registros de auditoría de desactivación de usuarios
+     */
+    @GetMapping("/user-deactivation")
+    public ResponseEntity<ApiResponse<List<AuditUserDeactivationDTO>>> getDeactivationAudits() {
+        List<AuditUserDeactivationDTO> audits = auditService.getAllDeactivationAudits();
+        return ResponseEntity.ok(ApiResponse.success("Auditoría de desactivación de usuarios obtenida", audits));
     }
 }

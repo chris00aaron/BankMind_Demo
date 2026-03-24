@@ -3,8 +3,8 @@ package com.naal.bankmind.service.Default;
 import com.naal.bankmind.dto.Default.Response.DashboardMorosidadDTO;
 import com.naal.bankmind.dto.Default.Response.DashboardMorosidadDTO.*;
 import com.naal.bankmind.entity.Customer;
-import com.naal.bankmind.entity.MonthlyHistory;
 import com.naal.bankmind.entity.Default.DefaultPrediction;
+import com.naal.bankmind.entity.Default.MonthlyHistory;
 import com.naal.bankmind.entity.Default.TrainingHistory;
 import com.naal.bankmind.repository.Default.DefaultPoliciesRepository;
 

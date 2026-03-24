@@ -2,10 +2,10 @@ package com.naal.bankmind.service.Default;
 
 import com.naal.bankmind.entity.Default.ModelMonitoringLog;
 import com.naal.bankmind.entity.Default.MonitoringPolicy;
+import com.naal.bankmind.entity.Default.MonthlyHistory;
 import com.naal.bankmind.entity.Default.ProductionModelDefault;
 import com.naal.bankmind.entity.Default.TrainingHistory;
 import com.naal.bankmind.entity.Default.DefaultPrediction;
-import com.naal.bankmind.entity.MonthlyHistory;
 import com.naal.bankmind.repository.Default.ModelMonitoringLogRepository;
 import com.naal.bankmind.repository.Default.MonitoringPolicyRepository;
 import com.naal.bankmind.repository.Default.ProductionModelDefaultRepository;

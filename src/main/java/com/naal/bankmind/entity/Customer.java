@@ -20,18 +20,6 @@ public class Customer {
     private Gender gender;
 
     @ManyToOne
-    @JoinColumn(name = "id_education")
-    private Education education;
-
-    @ManyToOne
-    @JoinColumn(name = "id_marriage")
-    private Marriage marriage;
-
-    @ManyToOne
-    @JoinColumn(name = "id_country")
-    private Country country;
-
-    @ManyToOne
     @JoinColumn(name = "id_localization")
     private Localization localization;
 
@@ -46,9 +34,6 @@ public class Customer {
 
     @Column(name = "dob")
     private LocalDate dob;
-
-    @Column(name = "age")
-    private Integer age;
 
     @Column(name = "job", length = 150)
     private String job;

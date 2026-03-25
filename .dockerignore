@@ -1,0 +1,14 @@
+# Excluir archivos de compilación previos (se vuelven a compilar en el Dockerfile)
+target/
+
+# Excluir control de versiones
+.git
+.gitignore
+
+# Excluir archivos de IDE
+.idea
+.vscode
+*.swp
+
+# Excluir archivos de logs locales
+*.log

@@ -20,7 +20,7 @@ public class ModelPredictionDbAdapter implements ModelPredictionRepository {
     public Optional<ModelPrediction> buscarModeloActualEnProduccion() {
         return this.jpaWithdrawalModelRepository.findByIsActiveTrue()
             .map(m -> new ModelPrediction(
-                m.getSelfTrainingAudit().getModelName()+"_V"+m.getId(),
+                m.getSelfTrainingAudit().getModelName(),
                 m.getSelfTrainingAudit().getMape(),
                 m.getSelfTrainingAudit().getMae(),
                 m.getSelfTrainingAudit().getRmse(),
@@ -28,5 +28,4 @@ public class ModelPredictionDbAdapter implements ModelPredictionRepository {
                 m.getEndDate()
             ));
     }
-
 }

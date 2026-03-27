@@ -53,8 +53,6 @@ public class SecurityConfig {
                                 "/api/v1/churn/**", // Rutas de churn (ajustado para coincidir con el controlador)
                                 "/api/morosidad/**", // Módulo de morosidad unificado
                                 "/error",
-                                // Path de ATM
-                                "atm/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/actuator/health",
                                 // Recursos estáticos (imágenes, CSS, JS, etc.)
                                 "/images/**",
@@ -63,6 +61,8 @@ public class SecurityConfig {
                                 "/static/**",
                                 "/favicon.ico")
                         .permitAll()
+                        // Path de ATM
+                        .requestMatchers("atm/**").hasAnyRole("ADMIN", "OPERARIO_DEMANDA_EFECTIVO")
                         // Rutas de admin
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Todo lo demás requiere autenticación

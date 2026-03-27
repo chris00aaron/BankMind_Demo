@@ -37,6 +37,7 @@ public class ObtenerSelfTrainingAuditService implements ObtenerSelfTrainingAudit
     public RegistroAutoentrenamientoDetailsDTO obtenerDetallePorId(Long id) {
         RegistroAutoentrenamiento model = registroAutoentrenamientoRepository.findById(id)
                 .orElseThrow(() -> new SelfTrainingAuditNotFoundException(id));
+        //Mapeamos el DTO
         return RegistroAutoentrenamientoMapper.toRegistroAutoentrenamientoDetailsDTO(model);
     }
 

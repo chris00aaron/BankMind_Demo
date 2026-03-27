@@ -1,0 +1,57 @@
+{"properties": [
+  {
+    "name": "jwt.secret",
+    "type": "java.lang.String",
+    "description": "Clave secreta para firmar y verificar los tokens JWT."
+  },
+  {
+    "name": "jwt.access-token-expiration",
+    "type": "java.lang.String",
+    "description": "Tiempo de expiración del token de acceso."
+  },
+  {
+    "name": "jwt.refresh-token-expiration",
+    "type": "java.lang.String",
+    "description": "Tiempo de expiración del token de refresco."
+  },
+  {
+    "name": "otp.expiration-minutes",
+    "type": "java.lang.String",
+    "description": "Tiempo de expiración del token OTP."
+  },
+  {
+    "name": "otp.max-attempts",
+    "type": "java.lang.String",
+    "description": "Número máximo de intentos para el token OTP."
+  },
+  {
+    "name": "cors.allowed-origins",
+    "type": "java.lang.String",
+    "description": "Dominios permitidos para las peticiones CORS."
+  },
+  {
+    "name": "bankmind.email.from",
+    "type": "java.lang.String",
+    "description": "Correo electrónico del remitente."
+  },
+  {
+    "name": "bankmind.email.token-expiry-hours",
+    "type": "java.lang.String",
+    "description": "Tiempo de expiración del token de correo electrónico."
+  },
+  {
+    "name": "bankmind.email.from-name",
+    "type": "java.lang.String",
+    "description": "Nombre del remitente."
+  },
+  {
+    "name": "self-training.api.base-url",
+    "type": "java.lang.String",
+    "description": "URL base de la API de auto-entrenamiento."
+  },
+  {
+    "name": "bankmind.encryption.secret-key",
+    "type": "java.lang.String",
+    "description": "Clave secreta para el cifrado AES-256-GCM."
+  }
+]}

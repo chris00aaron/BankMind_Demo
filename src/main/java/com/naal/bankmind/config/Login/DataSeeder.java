@@ -2,8 +2,6 @@ package com.naal.bankmind.config.Login;
 
 import com.naal.bankmind.entity.Login.Role;
 import com.naal.bankmind.entity.Login.User;
-import com.naal.bankmind.entity.RetentionStrategyDef;
-import com.naal.bankmind.repository.Churn.RetentionStrategyDefRepository;
 import com.naal.bankmind.repository.Shared.RoleRepository;
 import com.naal.bankmind.repository.Shared.UserRepository;
 
@@ -14,7 +12,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -31,7 +28,6 @@ public class DataSeeder implements CommandLineRunner {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
-    private final RetentionStrategyDefRepository retentionStrategyDefRepository;
     private final PasswordEncoder passwordEncoder;
 
     // Definición de roles del sistema
@@ -64,50 +60,10 @@ public class DataSeeder implements CommandLineRunner {
         try {
             seedRoles();
             seedUsers();
-            seedRetentionStrategies();
             log.info("✅ Carga de datos iniciales completada.");
         } catch (Exception e) {
             log.error("❌ Error durante la carga de datos iniciales: {}", e.getMessage());
             log.error("Stack trace:", e);
-        }
-    }
-
-    /**
-     * Crea estrategias de retención por defecto para el módulo de Fuga.
-     */
-    private void seedRetentionStrategies() {
-        if (retentionStrategyDefRepository.count() == 0) {
-            // 1. Descuento
-            RetentionStrategyDef s1 = new RetentionStrategyDef();
-            s1.setName("Descuento en Comisión");
-            s1.setDescription("Reducción del 50% en comisión de mantenimiento por 6 meses.");
-            s1.setCostPerClient(new BigDecimal("50.00"));
-            s1.setImpactFactor(new BigDecimal("0.35"));
-            s1.setIsActive(true);
-            s1.setCreatedAt(LocalDateTime.now());
-            retentionStrategyDefRepository.save(s1);
-
-            // 2. Cross-Selling
-            RetentionStrategyDef s2 = new RetentionStrategyDef();
-            s2.setName("Oferta Cross-Selling");
-            s2.setDescription("Tasa preferencial en préstamo personal o nueva tarjeta.");
-            s2.setCostPerClient(new BigDecimal("20.00"));
-            s2.setImpactFactor(new BigDecimal("0.25"));
-            s2.setIsActive(true);
-            s2.setCreatedAt(LocalDateTime.now());
-            retentionStrategyDefRepository.save(s2);
-
-            // 3. VIP
-            RetentionStrategyDef s3 = new RetentionStrategyDef();
-            s3.setName("Programa VIP Retention");
-            s3.setDescription("Acceso a gestor personal y beneficios exclusivos.");
-            s3.setCostPerClient(new BigDecimal("200.00"));
-            s3.setImpactFactor(new BigDecimal("0.60"));
-            s3.setIsActive(true);
-            s3.setCreatedAt(LocalDateTime.now());
-            retentionStrategyDefRepository.save(s3);
-
-            log.info("📋 Estrategias de retención creadas.");
         }
     }
 

@@ -35,7 +35,7 @@ public class AdminUserService {
      * Obtener todos los usuarios
      */
     public List<UserListDto> getAllUsers() {
-        return userRepository.findByEnableTrue().stream()
+        return userRepository.findAll().stream()
                 .map(this::mapToUserListDto)
                 .collect(Collectors.toList());
     }
@@ -200,6 +200,28 @@ public class AdminUserService {
 
         // Registrar en auditoría
         auditService.logUserDeactivation(user, adminUser, ipAddress);
+    }
+
+    /**
+     * Reactivar usuario desactivado
+     */
+    @Transactional
+    public void reactivateUser(Long userId, User adminUser, String ipAddress) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        // Validar que esté desactivado
+        if (user.getEnable()) {
+            throw new IllegalStateException("El usuario ya se encuentra activo");
+        }
+
+        user.setEnable(true);
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+        log.info("✅ Usuario reactivado: {} ({})", user.getFullName(), user.getEmail());
+
+        // Registrar en auditoría
+        auditService.logUserUpdate(user, adminUser, "enable", "false", "true", ipAddress);
     }
 
     private UserListDto mapToUserListDto(User user) {

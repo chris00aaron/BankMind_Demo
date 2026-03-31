@@ -105,17 +105,17 @@ public class MonitoringService {
         // 4. Evaluar reglas de Trigger (usando umbral de la política)
         boolean significantDrift = avgPsi > psiThreshold;
 
-        // Obtener historial previo para contar días consecutivos
+        // Obtener log de AYER para contar días consecutivos
         int consecutiveDays = 0;
-        Optional<ModelMonitoringLog> lastLog = monitoringLogRepository.findTopByOrderByIdMonitoringDesc();
+        Optional<ModelMonitoringLog> logYesterday = monitoringLogRepository.findByDate(LocalDate.now().minusDays(1));
 
-        if (lastLog.isPresent() && lastLog.get().getDriftDetected()) {
-            consecutiveDays = lastLog.get().getConsecutiveDaysDrift();
+        if (logYesterday.isPresent() && logYesterday.get().getDriftDetected()) {
+            consecutiveDays = logYesterday.get().getConsecutiveDaysDrift();
         }
 
         if (significantDrift) {
             consecutiveDays++;
-            log.warn("🚨 Drift detectado! Días consecutivos: {}", consecutiveDays);
+            log.warn("🚨 Drift detectado hoy! Días consecutivos: {}", consecutiveDays);
         } else {
             consecutiveDays = 0; // Reset si hoy está ok
         }
@@ -147,53 +147,54 @@ public class MonitoringService {
     }
 
     /**
-     * TAREA MENSUAL (Día 1 a las 2:00 AM)
-     * Valida el desempeño del modelo con labels reales confirmados.
-     * Compara predicciones de hace 2 meses vs lo que realmente pasó.
+     * TAREA DIARIA DE RENDIMIENTO (2:00 AM)
+     * Valida el desempeño del modelo activo con ventanas desfasadas de maduración.
      */
-    @Scheduled(cron = "0 0 2 1 * ?")
+    @Scheduled(cron = "0 0 2 * * ?")
     @Transactional
-    public void validateMonthlyPerformance() {
-        log.info("📅 Iniciando validación mensual de Performance...");
+    public void validateDynamicPerformance() {
+        log.info("📅 Iniciando validación dinámica progresiva de Performance...");
 
-        // 0. Obtener política de monitoreo activa (o usar defaults)
         MonitoringPolicy policy = monitoringPolicyRepository.findByIsActiveTrue().orElse(null);
         double aucDropThreshold = policy != null ? policy.getAucDropThreshold().doubleValue() : 0.05;
         double ksDropThreshold = policy != null ? policy.getKsDropThreshold().doubleValue() : 0.10;
         int trialsValidation = policy != null ? policy.getOptunaTrialsValidation() : 50;
 
         if (policy == null) {
-            log.warn(
-                    "⚠️ No hay política de monitoreo activa. Usando valores por defecto (AUC drop={}, KS drop={}, trials={})",
+            log.warn("⚠️ No hay política de monitoreo activa. Usando valores por defecto (AUC drop={}, KS drop={}, trials={})",
                     aucDropThreshold, ksDropThreshold, trialsValidation);
         }
 
-        // Evaluar el mes antepasado (ej: si hoy es 1 de Mayo, evaluamos Marzo,
-        // porque en Abril terminaron de pagar o vencerse las deudas de Marzo)
-        LocalDateTime startValidationInfo = LocalDate.now().minusMonths(2).atStartOfDay();
-        LocalDateTime endValidationInfo = LocalDate.now().minusMonths(1).atStartOfDay();
-
-        // Obtener el modelo que estaba activo en ese periodo
-        // (Simplificación: tomamos el modelo vinculado a las predicciones)
-        // Agrupamos validación por modelo ID si hubo cambios de modelo en el mes
-
-        // 1. Obtener predicciones históricas
-        // Necesitamos saber qué modelo hizo esas predicciones.
-        // Asumimos que iteramos sobre los modelos activos en ese rango.
-        // O más simple: validamos TODO lo predicho en ese mes agrupado por modelo.
-
-        List<Long> modelIds = entityManager.createQuery(
-                "SELECT DISTINCT p.idProductionModel.idModel FROM DefaultPrediction p " +
-                        "WHERE p.datePrediction BETWEEN :start AND :end",
-                Long.class)
-                .setParameter("start", startValidationInfo)
-                .setParameter("end", endValidationInfo)
-                .getResultList();
-
-        for (Long modelId : modelIds) {
-            validateModelForPeriod(modelId, startValidationInfo, endValidationInfo,
-                    aucDropThreshold, ksDropThreshold, trialsValidation);
+        ProductionModelDefault activeModel = productionModelRepository.findByIsActiveTrue().orElse(null);
+        if (activeModel == null || activeModel.getDeploymentDate() == null) {
+            log.warn("⚠️ No hay modelo activo o falta fecha de despliegue para validar.");
+            return;
         }
+
+        long daysSinceDeploy = java.time.temporal.ChronoUnit.DAYS.between(activeModel.getDeploymentDate().toLocalDate(), LocalDate.now());
+        
+        int initialWaitDays = 30;
+        int evaluationInterval = 15;
+        
+        if (daysSinceDeploy < initialWaitDays) {
+            log.info("⏳ Modelo muy joven ({} días) para evaluar. Esperando {} días...", daysSinceDeploy, initialWaitDays);
+            return;
+        }
+
+        if ((daysSinceDeploy - initialWaitDays) % evaluationInterval != 0) {
+            log.info("💤 Hoy (día {}) no toca evaluación del modelo. Ciclo en progreso.", daysSinceDeploy);
+            return;
+        }
+
+        LocalDateTime endValidationInfo = LocalDate.now().minusDays(15).atStartOfDay();
+        LocalDateTime startValidationInfo = endValidationInfo.minusDays(30);
+
+        if (startValidationInfo.isBefore(activeModel.getDeploymentDate())) {
+            startValidationInfo = activeModel.getDeploymentDate();
+        }
+
+        validateModelForPeriod(activeModel.getIdProductionModel(), startValidationInfo, endValidationInfo,
+                aucDropThreshold, ksDropThreshold, trialsValidation);
     }
 
     private void validateModelForPeriod(Long modelId, LocalDateTime start, LocalDateTime end,
@@ -238,8 +239,16 @@ public class MonitoringService {
             yScores.add(p.getDefaultProbability().doubleValue());
         }
 
-        if (yTrue.isEmpty())
+        if (predictions.size() < 1000) {
+            log.warn("⚠️ Muestra total insuficiente (< 1000 registros). Abortando validación.");
             return;
+        }
+
+        long morosos = yTrue.stream().filter(l -> l == 1).count();
+        if (morosos < 100) {
+            log.warn("⚠️ Eventos de mora insuficientes (< 100) para calcular un AUC fiable. Abortando validación.");
+            return;
+        }
 
         // Calcular Métricas
         double aucReal = calculateAuc(yTrue, yScores);
@@ -277,10 +286,15 @@ public class MonitoringService {
             }
         }
 
-        // Guardar Log (Mensual) — con FK al modelo en producción y a la política activa
-        ModelMonitoringLog monitoringEntry = new ModelMonitoringLog();
-        monitoringEntry.setMonitoringDate(LocalDate.now());
-        productionModelRepository.findByIsActiveTrue().ifPresent(monitoringEntry::setProductionModel);
+        // Guardar Log (Reusando registro del día si existe por Drift)
+        ModelMonitoringLog monitoringEntry = monitoringLogRepository.findByDate(LocalDate.now())
+                .orElseGet(() -> {
+                    ModelMonitoringLog newLog = new ModelMonitoringLog();
+                    newLog.setMonitoringDate(LocalDate.now());
+                    productionModelRepository.findByIsActiveTrue().ifPresent(newLog::setProductionModel);
+                    return newLog;
+                });
+
         monitoringEntry.setMonitoringPolicy(monitoringPolicyRepository.findByIsActiveTrue().orElse(null));
         monitoringEntry.setValidationStatus("VALIDATED");
         monitoringEntry.setAucRocReal(aucReal);

@@ -291,9 +291,9 @@ public class DashboardService {
         // Obtener el mes máximo para asignar la predicción
         String mesMaximo = (String) stats.get(stats.size() - 1)[0];
 
-        // Calcular predicción promedio desde las últimas predicciones
+        // Calcular Tasa Predicha de Morosidad (clientes sobre el umbral / total de clientes) para que coincida con el KPI "Tasa de Morosidad"
         String predQuery = """
-                SELECT AVG(dp.default_probability) * 100
+                SELECT (SUM(CASE WHEN dp.default_probability > :threshold THEN 1 ELSE 0 END) * 100.0) / NULLIF(COUNT(*), 0)
                 FROM default_prediction dp
                 JOIN monthly_history mh ON mh.id_historial = dp.id_historial
                 WHERE dp.id_prediction IN (
@@ -306,7 +306,9 @@ public class DashboardService {
                 )
                 """;
 
-        Number predResult = (Number) entityManager.createNativeQuery(predQuery).getSingleResult();
+        Number predResult = (Number) entityManager.createNativeQuery(predQuery)
+                .setParameter("threshold", getDefaultThreshold())
+                .getSingleResult();
         double prediccionPromedio = predResult != null ? predResult.doubleValue() : 0.0;
 
         log.info("Predicción promedio: {}%", prediccionPromedio);

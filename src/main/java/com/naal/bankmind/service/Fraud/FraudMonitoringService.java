@@ -4,7 +4,6 @@ import com.naal.bankmind.dto.Fraud.ChampionModelDto;
 import com.naal.bankmind.dto.Fraud.DriftModelOptionDto;
 import com.naal.bankmind.dto.Fraud.FeatureDriftDto;
 import com.naal.bankmind.dto.Fraud.TrainingAuditDto;
-import com.naal.bankmind.entity.Fraud.FraudModels;
 import com.naal.bankmind.entity.Fraud.ModelFeatureDrift;
 import com.naal.bankmind.entity.Fraud.SelfTrainingAuditFraud;
 import com.naal.bankmind.repository.Fraud.ModelFeatureDriftRepository;
@@ -44,7 +43,9 @@ public class FraudMonitoringService {
     private final ModelFeatureDriftRepository featureDriftRepository;
     private final JdbcTemplate jdbcTemplate;
 
-    private static final String TRAINING_API_URL = "http://localhost:8001/fraude/train";
+    @org.springframework.beans.factory.annotation.Value("${fraud.scheduler.training-url:http://localhost:8001/fraude/train}")
+    private String trainingApiUrl;
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     // ===========================================================================
@@ -340,7 +341,7 @@ public class FraudMonitoringService {
 
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(
-                    TRAINING_API_URL, requestEntity, Map.class);
+                    trainingApiUrl, requestEntity, Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 log.info("✅ [MANUAL] Entrenamiento completado. Status: {}",

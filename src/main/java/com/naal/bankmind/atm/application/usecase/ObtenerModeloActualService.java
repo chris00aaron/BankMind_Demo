@@ -10,8 +10,11 @@ import com.naal.bankmind.atm.domain.ports.out.repository.ModelPredictionReposito
 
 import lombok.AllArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @AllArgsConstructor
 @Service
+@Transactional(readOnly = true)
 public class ObtenerModeloActualService implements ObtenerModeloActualEnProduccionUseCase {
 
     private ModelPredictionRepository modelPredictionRepository;

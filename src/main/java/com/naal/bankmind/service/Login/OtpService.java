@@ -104,7 +104,7 @@ public class OtpService {
         otp.setVerified(true);
         otpRepository.save(otp);
 
-        log.info("✅ OTP verificado exitosamente para usuario: {}", otp.getUser().getEmail());
+        log.info("OTP verificado exitosamente para usuario: {}", otp.getUser().getEmail());
         return Optional.of(otp);
     }
 
@@ -133,7 +133,8 @@ public class OtpService {
 
     @Transactional
     public void cleanupExpiredOtps() {
-        otpRepository.deleteExpiredOtps(LocalDateTime.now());
+        int deletedCount = otpRepository.deleteExpiredOtps(LocalDateTime.now());
+        log.info("Se eliminaron {} OTPs expirados", deletedCount);
     }
 
     private String maskEmail(String email) {

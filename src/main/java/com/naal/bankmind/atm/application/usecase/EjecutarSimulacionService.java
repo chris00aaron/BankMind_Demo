@@ -37,5 +37,4 @@ public class EjecutarSimulacionService implements EjecutarSimulacionUseCase {
         , retiroHistorico
         ,RetiroEfectivoAtmPrediccionMapper.toResumenDTO(predicciones));
     }
-
 }

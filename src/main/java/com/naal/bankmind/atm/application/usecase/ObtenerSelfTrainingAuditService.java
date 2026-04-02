@@ -18,8 +18,11 @@ import com.naal.bankmind.atm.domain.ports.out.repository.SelfTrainingAuditReposi
 
 import lombok.AllArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @AllArgsConstructor
 @Service
+@Transactional(readOnly = true)
 public class ObtenerSelfTrainingAuditService implements ObtenerSelfTrainingAuditUseCase {
 
     private final RegistroAutoentrenamientoRepository registroAutoentrenamientoRepository;

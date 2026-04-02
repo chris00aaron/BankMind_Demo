@@ -13,9 +13,7 @@ import static org.springframework.data.web.config.EnableSpringDataWebSupport.Pag
 @EnableScheduling
 @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)
 public class BankMindApplication {
-	
 	public static void main(String[] args) {
 		SpringApplication.run(BankMindApplication.class, args);
 	}
-	
 }

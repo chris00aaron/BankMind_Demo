@@ -3,6 +3,7 @@ package com.naal.bankmind.atm.application.usecase;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.naal.bankmind.atm.application.dto.response.WeatherDTO;
 import com.naal.bankmind.atm.application.mapper.WeatherMapper;
@@ -13,6 +14,7 @@ import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
 @Service
+@Transactional(readOnly = true)
 public class ListarClimasDisponiblesService implements ListarClimasDisponiblesUseCase {
 
     private final WeatherRepository weatherRepository;

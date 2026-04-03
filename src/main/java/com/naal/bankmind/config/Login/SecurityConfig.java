@@ -53,8 +53,6 @@ public class SecurityConfig {
                                 "/api/v1/churn/**", // Rutas de churn (ajustado para coincidir con el controlador)
                                 "/api/morosidad/**", // Módulo de morosidad unificado
                                 "/error",
-                                // Path de ATM
-                                "atm/**", // SOLO PARA PRUEBAS QUITAR LUEGO
                                 "/actuator/health",
                                 // Recursos estáticos (imágenes, CSS, JS, etc.)
                                 "/images/**",
@@ -63,6 +61,8 @@ public class SecurityConfig {
                                 "/static/**",
                                 "/favicon.ico")
                         .permitAll()
+                        // Path de ATM
+                        .requestMatchers("/api/atm/**").hasAnyRole("ADMIN", "OPERARIO_DEMANDA_EFECTIVO")
                         // Rutas de admin
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Todo lo demás requiere autenticación
@@ -78,12 +78,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -91,19 +89,19 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider() {
+    AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
+    PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 }

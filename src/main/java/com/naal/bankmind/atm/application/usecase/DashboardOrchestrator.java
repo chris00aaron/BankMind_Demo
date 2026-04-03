@@ -34,7 +34,7 @@ public class DashboardOrchestrator implements GenerarDashboardUseCase<DashboardR
 
     @Override
     public DashboardRetiroAtmDTO generarDashboard() {
-        LocalDate fecha = LocalDate.of(2026, 02, 03);
+        LocalDate fecha = LocalDate.now();
 
         // 1. Obtención de Datos de Dominio (Pureza)
         var predicciones = prediccionDiariaUseCase.obtenerPrediccionDiaria(fecha);

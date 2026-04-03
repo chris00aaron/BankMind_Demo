@@ -23,6 +23,8 @@ import com.naal.bankmind.entity.atm.WithdrawalModel;
 
 import lombok.AllArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @AllArgsConstructor
 @Repository
 public class RetiroEfectivoAtmPrediccionDbAdapter implements RetiroEfectivoAtmPrediccionRepository {
@@ -32,6 +34,7 @@ public class RetiroEfectivoAtmPrediccionDbAdapter implements RetiroEfectivoAtmPr
     private final JpaDailyWithdrawalPredictionRepository jpaDailyWithdrawalPredictionRepository;
     
     @Override
+    @Transactional(readOnly = true)
     public List<RetiroEfectivoAtmPrediccion> obtenerPrediccionesPorFecha(LocalDate fecha) {
         List<DailyWithdrawalPrediction> predicciones = jpaDailyWithdrawalPredictionRepository.findByPredictionDate(fecha);
 
@@ -52,6 +55,7 @@ public class RetiroEfectivoAtmPrediccionDbAdapter implements RetiroEfectivoAtmPr
 
 
     @Override
+    @Transactional
     public List<RetiroEfectivoAtmPrediccion> guardarPredicciones(List<OutputDataPredictionRetiroAtm> nuevasPredicciones) {
 
         ConfidenceModel confidenceModel = confidenceModelRepository.obtenerConfidenceModelActivo()

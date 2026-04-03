@@ -13,7 +13,7 @@ import com.naal.bankmind.dto.Shared.ApiResponse;
 import lombok.AllArgsConstructor;
 
 @RestController
-@RequestMapping("/atm/feature")
+@RequestMapping("/api/atm/feature")
 @AllArgsConstructor
 public class AtmFeatureController {
 

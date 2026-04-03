@@ -9,9 +9,9 @@ import com.naal.bankmind.client.atm.dto.request.InputDataRetiroAtmDTO;
 import com.naal.bankmind.client.atm.dto.response.OutputDataRetiroAtmDTO;
 
 
-@FeignClient(name = "withdrawal-client", url = "http://localhost:8000/api/atm")
+@FeignClient(name = "withdrawal-client", url = "${prediction.api.base-url}")
 public interface WithdrawalFeignClient {
 
-    @PostMapping("/v1/withdrawal/off-time")
+    @PostMapping("/api/atm/v1/withdrawal/off-time")
     public List<OutputDataRetiroAtmDTO> predecirWithdrawalHistoric(@RequestBody List<InputDataRetiroAtmDTO> inputDataRetiroAtms);
 }

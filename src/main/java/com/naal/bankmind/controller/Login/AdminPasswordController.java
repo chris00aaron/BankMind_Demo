@@ -1,13 +1,12 @@
 package com.naal.bankmind.controller.Login;
 
-import com.naal.bankmind.dto.Login.ApprovePasswordResetRequest;
 import com.naal.bankmind.dto.Login.PasswordResetRequestDto;
 import com.naal.bankmind.dto.Shared.ApiResponse;
 import com.naal.bankmind.entity.Login.User;
 import com.naal.bankmind.service.Login.CustomUserDetailsService;
 import com.naal.bankmind.service.Login.PasswordResetService;
 
-import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -56,10 +55,12 @@ public class AdminPasswordController {
     @PostMapping("/{id}/approve")
     public ResponseEntity<ApiResponse<Void>> approveRequest(
             @PathVariable Long id,
-            Authentication authentication) {
+            Authentication authentication,
+            HttpServletRequest httpRequest) {
         try {
             User admin = userDetailsService.findUserByEmail(authentication.getName());
-            passwordResetService.approveRequest(id, admin);
+            String ipAddress = getClientIp(httpRequest);
+            passwordResetService.approveRequest(id, admin, ipAddress);
             return ResponseEntity.ok(ApiResponse.success(
                     "Solicitud aprobada. La contraseña ha sido reseteada a la predeterminada (admin123)."));
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -98,5 +99,13 @@ public class AdminPasswordController {
         public void setNotes(String notes) {
             this.notes = notes;
         }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

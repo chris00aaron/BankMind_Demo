@@ -70,8 +70,8 @@ import java.util.stream.Collectors;
 public class ChurnService {
 
     // Cache for the latest training result (used by getMLOpsMetrics)
-    private static volatile TrainResultDTO lastTrainResult     = null;
-    private static volatile String         lastTrainResultDate = null; // fecha real del entrenamiento
+    private static volatile TrainResultDTO lastTrainResult = null;
+    private static volatile String lastTrainResultDate = null; // fecha real del entrenamiento
 
     private final CustomerRepository customerRepository;
     private final AccountDetailsRepository accountDetailsRepository;
@@ -93,7 +93,10 @@ public class ChurnService {
     @Value("${churn.api.base-url:http://localhost:8001}")
     private String churnApiBaseUrl;
 
-    /** Máximo de clientes en la muestra estratificada para la Matriz de Prioridad de Retención. */
+    /**
+     * Máximo de clientes en la muestra estratificada para la Matriz de Prioridad de
+     * Retención.
+     */
     @Value("${churn.matrix.sample-size:500}")
     private int matrixSampleSize;
 
@@ -144,11 +147,11 @@ public class ChurnService {
         System.out.println("Service: Fetching customers page=" + page + " size=" + size + " search='" + search
                 + "' country='" + country + "' riskLevel='" + riskLevel + "'");
 
-        boolean hasRiskFilter    = riskLevel != null && !riskLevel.trim().isEmpty();
-        boolean hasCountryFilter = country   != null && !country.trim().isEmpty();
-        boolean hasSegmentFilter = segment   != null && !segment.trim().isEmpty();
-        boolean hasSearch        = search    != null && !search.trim().isEmpty();
-        boolean hasFilters       = hasRiskFilter || hasCountryFilter || hasSegmentFilter;
+        boolean hasRiskFilter = riskLevel != null && !riskLevel.trim().isEmpty();
+        boolean hasCountryFilter = country != null && !country.trim().isEmpty();
+        boolean hasSegmentFilter = segment != null && !segment.trim().isEmpty();
+        boolean hasSearch = search != null && !search.trim().isEmpty();
+        boolean hasFilters = hasRiskFilter || hasCountryFilter || hasSegmentFilter;
 
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         org.springframework.data.domain.Page<Customer> customerPage;
@@ -173,11 +176,18 @@ public class ChurnService {
                 java.math.BigDecimal balanceMin = null;
                 java.math.BigDecimal balanceMax = null;
                 switch (segment.trim().toLowerCase()) {
-                    case "corporate": balanceMin = java.math.BigDecimal.valueOf(100000); break;
-                    case "sme":       balanceMin = java.math.BigDecimal.valueOf(50000);
-                                      balanceMax = java.math.BigDecimal.valueOf(100000); break;
-                    case "personal":  balanceMax = java.math.BigDecimal.valueOf(50000); break;
-                    default: break;
+                    case "corporate":
+                        balanceMin = java.math.BigDecimal.valueOf(100000);
+                        break;
+                    case "sme":
+                        balanceMin = java.math.BigDecimal.valueOf(50000);
+                        balanceMax = java.math.BigDecimal.valueOf(100000);
+                        break;
+                    case "personal":
+                        balanceMax = java.math.BigDecimal.valueOf(50000);
+                        break;
+                    default:
+                        break;
                 }
                 List<Long> segmentIds = accountDetailsRepository.findCustomerIdsByBalanceRange(balanceMin, balanceMax);
                 java.util.Set<Long> segmentSet = new java.util.HashSet<>(segmentIds);
@@ -220,7 +230,7 @@ public class ChurnService {
                 .map(Customer::getIdCustomer)
                 .collect(Collectors.toList());
 
-        Map<Long, AccountDetails>  accountMap    = new java.util.HashMap<>();
+        Map<Long, AccountDetails> accountMap = new java.util.HashMap<>();
         Map<Long, ChurnPredictions> predictionMap = new java.util.HashMap<>();
 
         if (!customerIds.isEmpty()) {
@@ -425,7 +435,8 @@ public class ChurnService {
                 }
             }
 
-            // Solo agregar al scatter si tiene predicción real — evita colapsar todos en (50, balance)
+            // Solo agregar al scatter si tiene predicción real — evita colapsar todos en
+            // (50, balance)
             if (!hasPrediction)
                 continue;
 
@@ -685,16 +696,17 @@ public class ChurnService {
      * @param actionType The type of action (EMAIL, CALL, etc.)
      */
     public void logInteraction(Long idCustomer, String actionType) {
-        // Find or create the "Interacciones Individuales" campaign without forcing a manual ID
+        // Find or create the "Interacciones Individuales" campaign without forcing a
+        // manual ID
         // (campaign_log.id_campaign is GENERATED ALWAYS AS IDENTITY in PostgreSQL)
         CampaignLog campaign = campaignLogRepository.findByName("Interacciones Individuales")
-            .orElseGet(() -> {
-                CampaignLog newCamp = new CampaignLog();
-                newCamp.setName("Interacciones Individuales");
-                newCamp.setStatus("ACTIVE");
-                newCamp.setStartDate(LocalDateTime.now());
-                return campaignLogRepository.save(newCamp);
-            });
+                .orElseGet(() -> {
+                    CampaignLog newCamp = new CampaignLog();
+                    newCamp.setName("Interacciones Individuales");
+                    newCamp.setStatus("ACTIVE");
+                    newCamp.setStartDate(LocalDateTime.now());
+                    return campaignLogRepository.save(newCamp);
+                });
 
         // Find existing target entry or create a new one
         CampaignTargetKey key = new CampaignTargetKey();
@@ -746,10 +758,12 @@ public class ChurnService {
                     .versionTag((String) rawResponse.get("version_tag"))
                     .error((String) rawResponse.get("error"))
                     .promoted(rawResponse.get("promoted") instanceof Boolean
-                            ? (Boolean) rawResponse.get("promoted") : null)
+                            ? (Boolean) rawResponse.get("promoted")
+                            : null)
                     .promotionReason((String) rawResponse.get("promotion_reason"))
                     .inProduction(rawResponse.get("in_production") instanceof Boolean
-                            ? (Boolean) rawResponse.get("in_production") : null);
+                            ? (Boolean) rawResponse.get("in_production")
+                            : null);
 
             // Parse train/test samples
             if (rawResponse.get("train_samples") != null) {
@@ -790,7 +804,7 @@ public class ChurnService {
 
             // Cache for getMLOpsMetrics — guardamos la fecha real del entrenamiento
             if ("success".equals(result.getStatus())) {
-                lastTrainResult     = result;
+                lastTrainResult = result;
                 lastTrainResultDate = java.time.LocalDate.now().toString();
                 System.out.println("---> Training result cached for MLOps metrics.");
             }
@@ -900,7 +914,8 @@ public class ChurnService {
     }
 
     /**
-     * Calls the Python batch endpoint /churn/predict-batch with a chunk of customers.
+     * Calls the Python batch endpoint /churn/predict-batch with a chunk of
+     * customers.
      * Each item in the chunk must have an 'id' field plus all ChurnInput fields.
      * Returns one result per customer — no SHAP explanations (batch use).
      */
@@ -913,25 +928,27 @@ public class ChurnService {
         for (Long id : customerIds) {
             Customer c = customerLookup.get(id);
             AccountDetails acc = accountMap.get(id);
-            if (c == null || acc == null) continue;
+            if (c == null || acc == null)
+                continue;
 
             ChurnRequestDTO req = mapToChurnRequest(c, acc);
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id",              id);
-            item.put("CreditScore",     req.getCreditScore());
-            item.put("Geography",       req.getGeography());
-            item.put("Gender",          req.getGender());
-            item.put("Age",             req.getAge());
-            item.put("Tenure",          req.getTenure());
-            item.put("Balance",         req.getBalance());
-            item.put("NumOfProducts",   req.getNumOfProducts());
-            item.put("HasCrCard",       req.getHasCrCard());
-            item.put("IsActiveMember",  req.getIsActiveMember());
+            item.put("id", id);
+            item.put("CreditScore", req.getCreditScore());
+            item.put("Geography", req.getGeography());
+            item.put("Gender", req.getGender());
+            item.put("Age", req.getAge());
+            item.put("Tenure", req.getTenure());
+            item.put("Balance", req.getBalance());
+            item.put("NumOfProducts", req.getNumOfProducts());
+            item.put("HasCrCard", req.getHasCrCard());
+            item.put("IsActiveMember", req.getIsActiveMember());
             item.put("EstimatedSalary", req.getEstimatedSalary());
             customers.add(item);
         }
 
-        if (customers.isEmpty()) return new ArrayList<>();
+        if (customers.isEmpty())
+            return new ArrayList<>();
 
         Map<String, Object> requestBody = Map.of("customers", customers);
         String url = churnApiBaseUrl + "/churn/predict-batch";
@@ -946,13 +963,6 @@ public class ChurnService {
         return response != null ? Arrays.asList(response) : new ArrayList<>();
     }
 
-    /**
-     * Calculates geography statistics based on real customer data.
-     * 
-     * ENHANCEMENT: Before calculating, it selects a random 10% of customers 
-     * who haven't been analyzed recently and triggers their prediction.
-     * This ensures the "Risk Intelligence" view is always fresh and diverse.
-     */
     /**
      * Calculates geography statistics based on real customer data.
      * Uses batch queries to eliminate N+1 performance issues.
@@ -1004,7 +1014,8 @@ public class ChurnService {
                 ChurnPredictions pred = predictionMap.get(c.getIdCustomer());
 
                 // Solo incluimos si el cliente tiene datos financieros o predicción
-                if (acc == null && pred == null) continue;
+                if (acc == null && pred == null)
+                    continue;
 
                 total++;
                 if (acc != null && acc.getBalance() != null) {
@@ -1021,12 +1032,16 @@ public class ChurnService {
                     }
                 }
 
-                if (riskVal > 0.7) high++;
-                else if (riskVal >= 0.45) medium++;
-                else low++;
+                if (riskVal > 0.7)
+                    high++;
+                else if (riskVal >= 0.45)
+                    medium++;
+                else
+                    low++;
             }
 
-            if (total == 0) continue;
+            if (total == 0)
+                continue;
 
             BigDecimal avgBalance = totalBalance.divide(BigDecimal.valueOf(total), java.math.RoundingMode.HALF_UP);
             BigDecimal churnRate = BigDecimal.valueOf((double) churnCount * 100 / total);
@@ -1035,9 +1050,16 @@ public class ChurnService {
             String code = "UN";
             String flag = "🏳️";
             String cLower = countryName.toLowerCase();
-            if (cLower.contains("fran")) { code = "FR"; flag = "🇫🇷"; }
-            else if (cLower.contains("alem") || cLower.contains("germ")) { code = "DE"; flag = "🇩🇪"; }
-            else if (cLower.contains("espa") || cLower.contains("spai")) { code = "ES"; flag = "🇪🇸"; }
+            if (cLower.contains("fran")) {
+                code = "FR";
+                flag = "🇫🇷";
+            } else if (cLower.contains("alem") || cLower.contains("germ")) {
+                code = "DE";
+                flag = "🇩🇪";
+            } else if (cLower.contains("espa") || cLower.contains("spai")) {
+                code = "ES";
+                flag = "🇪🇸";
+            }
 
             stats.add(com.naal.bankmind.dto.Churn.GeographyStatsDTO.builder()
                     .country(countryName)
@@ -1073,7 +1095,8 @@ public class ChurnService {
                                     Math.min(8, lastTrainResult.getRunId().length()))
                             : "v-latest")
                     .totalPredictions(totalPredictions)
-                    .lastTrainingDate(lastTrainResultDate != null ? lastTrainResultDate : java.time.LocalDate.now().toString())
+                    .lastTrainingDate(
+                            lastTrainResultDate != null ? lastTrainResultDate : java.time.LocalDate.now().toString())
                     .precision(m.getPrecision() != null ? m.getPrecision() * 100 : 0.0)
                     .recall(m.getRecall() != null ? m.getRecall() * 100 : 0.0)
                     .f1Score(m.getF1Score() != null ? m.getF1Score() * 100 : 0.0)
@@ -1082,8 +1105,10 @@ public class ChurnService {
         }
 
         // Priority 2: Read metrics from churn_training_history table.
-        // Prefer the champion (in-production) model with the highest AUC-ROC — it represents
-        // the best-performing model currently serving predictions. Fall back to latest record.
+        // Prefer the champion (in-production) model with the highest AUC-ROC — it
+        // represents
+        // the best-performing model currently serving predictions. Fall back to latest
+        // record.
         Optional<ChurnTrainingHistory> champion = churnTrainingHistoryRepository
                 .findTopByInProductionTrueOrderByAucRocDesc();
         Optional<ChurnTrainingHistory> fallback = churnTrainingHistoryRepository
@@ -1125,7 +1150,8 @@ public class ChurnService {
     // ============================================================
 
     /**
-     * Gets all real campaigns from the database (excludes the "Interacciones Individuales"
+     * Gets all real campaigns from the database (excludes the "Interacciones
+     * Individuales"
      * pseudo-campaign created by logInteraction), ordered by start date descending.
      * Uses a single GROUP BY query to resolve convertedCount — avoids N+1.
      */
@@ -1139,8 +1165,8 @@ public class ChurnService {
 
         // Build convertedCount map in one query
         Map<Long, Integer> convertedMap = new java.util.HashMap<>();
-        campaignTargetRepository.countConvertedGroupedByCampaign().forEach(row ->
-                convertedMap.put((Long) row[0], ((Number) row[1]).intValue()));
+        campaignTargetRepository.countConvertedGroupedByCampaign()
+                .forEach(row -> convertedMap.put((Long) row[0], ((Number) row[1]).intValue()));
 
         return campaigns.stream().map(c -> CampaignLogDTO.builder()
                 .id(c.getIdCampaign())
@@ -1211,7 +1237,8 @@ public class ChurnService {
             try {
                 String rulesJson = campaign.getSegment().getRulesJson();
                 if (rulesJson != null && !rulesJson.isEmpty()) {
-                    rules = objectMapper.readValue(rulesJson, new TypeReference<List<java.util.Map<String, Object>>>() {});
+                    rules = objectMapper.readValue(rulesJson, new TypeReference<List<java.util.Map<String, Object>>>() {
+                    });
                 }
             } catch (Exception e) {
                 System.err.println("Error parsing segment rules: " + e.getMessage());
@@ -1224,8 +1251,8 @@ public class ChurnService {
 
             java.util.Map<Long, com.naal.bankmind.entity.AccountDetails> accMap = new java.util.HashMap<>();
             if (!customerIds.isEmpty()) {
-                accountDetailsRepository.findByCustomerIds(customerIds).forEach(ad ->
-                        accMap.putIfAbsent(ad.getCustomer().getIdCustomer(), ad));
+                accountDetailsRepository.findByCustomerIds(customerIds)
+                        .forEach(ad -> accMap.putIfAbsent(ad.getCustomer().getIdCustomer(), ad));
             }
 
             final List<java.util.Map<String, Object>> finalRules = rules;
@@ -1291,8 +1318,8 @@ public class ChurnService {
         campaign.setStatus(status);
         campaignLogRepository.save(campaign);
         Map<Long, Integer> convertedMap = new java.util.HashMap<>();
-        campaignTargetRepository.countConvertedGroupedByCampaign().forEach(row ->
-                convertedMap.put((Long) row[0], ((Number) row[1]).intValue()));
+        campaignTargetRepository.countConvertedGroupedByCampaign()
+                .forEach(row -> convertedMap.put((Long) row[0], ((Number) row[1]).intValue()));
         return CampaignLogDTO.builder()
                 .id(campaign.getIdCampaign())
                 .name(campaign.getName())
@@ -1300,7 +1327,8 @@ public class ChurnService {
                 .strategyName(campaign.getStrategy() != null ? campaign.getStrategy().getName() : "Sin estrategia")
                 .startDate(campaign.getStartDate() != null ? campaign.getStartDate().toLocalDate().toString() : "")
                 .status(campaign.getStatus())
-                .budgetAllocated(campaign.getBudgetAllocated() != null ? campaign.getBudgetAllocated().doubleValue() : 0.0)
+                .budgetAllocated(
+                        campaign.getBudgetAllocated() != null ? campaign.getBudgetAllocated().doubleValue() : 0.0)
                 .expectedRoi(campaign.getExpectedRoi() != null ? campaign.getExpectedRoi().doubleValue() : 0.0)
                 .targetedCount(campaign.getTargetedCount() != null ? campaign.getTargetedCount() : 0)
                 .convertedCount(convertedMap.getOrDefault(campaign.getIdCampaign(), 0))
@@ -1308,7 +1336,8 @@ public class ChurnService {
     }
 
     /**
-     * Counts how many customers would match a segment's rules, without creating a campaign.
+     * Counts how many customers would match a segment's rules, without creating a
+     * campaign.
      * Used for the "preview" shown in the campaign creation modal.
      */
     public int previewSegmentCount(Long segmentId) {
@@ -1319,7 +1348,8 @@ public class ChurnService {
         try {
             String rulesJson = segment.getRulesJson();
             if (rulesJson != null && !rulesJson.isEmpty()) {
-                rules = objectMapper.readValue(rulesJson, new TypeReference<List<java.util.Map<String, Object>>>() {});
+                rules = objectMapper.readValue(rulesJson, new TypeReference<List<java.util.Map<String, Object>>>() {
+                });
             }
         } catch (Exception e) {
             System.err.println("Error parsing segment rules for preview: " + e.getMessage());
@@ -1332,8 +1362,8 @@ public class ChurnService {
 
         java.util.Map<Long, com.naal.bankmind.entity.AccountDetails> accMap = new java.util.HashMap<>();
         if (!customerIds.isEmpty()) {
-            accountDetailsRepository.findByCustomerIds(customerIds).forEach(ad ->
-                    accMap.putIfAbsent(ad.getCustomer().getIdCustomer(), ad));
+            accountDetailsRepository.findByCustomerIds(customerIds)
+                    .forEach(ad -> accMap.putIfAbsent(ad.getCustomer().getIdCustomer(), ad));
         }
 
         final List<java.util.Map<String, Object>> finalRules = rules;
@@ -1358,10 +1388,11 @@ public class ChurnService {
             Customer customer,
             com.naal.bankmind.entity.AccountDetails acc) {
         for (java.util.Map<String, Object> rule : rules) {
-            String field  = (String) rule.get("field");
-            String op     = (String) rule.get("op");
+            String field = (String) rule.get("field");
+            String op = (String) rule.get("op");
             Object valObj = rule.get("val");
-            if (field == null || op == null || valObj == null) continue;
+            if (field == null || op == null || valObj == null)
+                continue;
 
             // Numeric fields
             Double numVal = null;
@@ -1398,39 +1429,69 @@ public class ChurnService {
             // String fields
             String strVal = null;
             switch (field) {
-                case "job":        strVal = customer.getJob();        break;
-                case "risk_level": strVal = pred.getRiskLevel();      break;
+                case "job":
+                    strVal = customer.getJob();
+                    break;
+                case "risk_level":
+                    strVal = pred.getRiskLevel();
+                    break;
                 case "country":
                     if (customer.getCountry() != null && customer.getCountry().getCountryDescription() != null)
                         strVal = customer.getCountry().getCountryDescription();
                     break;
-                default: break;
+                default:
+                    break;
             }
 
             if (numVal != null) {
                 double target;
-                try { target = Double.parseDouble(valObj.toString()); }
-                catch (NumberFormatException e) { continue; }
+                try {
+                    target = Double.parseDouble(valObj.toString());
+                } catch (NumberFormatException e) {
+                    continue;
+                }
                 boolean ok;
                 switch (op) {
-                    case ">":  ok = numVal > target;  break;
-                    case "<":  ok = numVal < target;  break;
-                    case ">=": ok = numVal >= target; break;
-                    case "<=": ok = numVal <= target; break;
-                    case "=": case "==": ok = numVal.equals(target); break;
-                    case "!=": ok = !numVal.equals(target); break;
-                    default: ok = true;
+                    case ">":
+                        ok = numVal > target;
+                        break;
+                    case "<":
+                        ok = numVal < target;
+                        break;
+                    case ">=":
+                        ok = numVal >= target;
+                        break;
+                    case "<=":
+                        ok = numVal <= target;
+                        break;
+                    case "=":
+                    case "==":
+                        ok = numVal.equals(target);
+                        break;
+                    case "!=":
+                        ok = !numVal.equals(target);
+                        break;
+                    default:
+                        ok = true;
                 }
-                if (!ok) return false;
+                if (!ok)
+                    return false;
             } else if (strVal != null) {
                 String target = valObj.toString();
                 boolean ok;
                 switch (op) {
-                    case "=": case "==": ok = strVal.equalsIgnoreCase(target); break;
-                    case "!=":           ok = !strVal.equalsIgnoreCase(target); break;
-                    default: ok = true;
+                    case "=":
+                    case "==":
+                        ok = strVal.equalsIgnoreCase(target);
+                        break;
+                    case "!=":
+                        ok = !strVal.equalsIgnoreCase(target);
+                        break;
+                    default:
+                        ok = true;
                 }
-                if (!ok) return false;
+                if (!ok)
+                    return false;
             }
             // Unknown field → skip (don't block)
         }
@@ -1438,21 +1499,26 @@ public class ChurnService {
     }
 
     /**
-     * Returns all campaign targets for a given campaign, with customer name resolved.
+     * Returns all campaign targets for a given campaign, with customer name
+     * resolved.
      */
     public List<com.naal.bankmind.dto.Churn.CampaignTargetDTO> getCampaignTargets(Long campaignId) {
         return campaignTargetRepository.findByIdIdCampaign(campaignId).stream()
                 .map(t -> {
-                    com.naal.bankmind.entity.Customer c = customerRepository.findById(t.getId().getIdCustomer()).orElse(null);
+                    com.naal.bankmind.entity.Customer c = customerRepository.findById(t.getId().getIdCustomer())
+                            .orElse(null);
                     String name = c != null
-                            ? ((c.getFirstName() != null ? c.getFirstName() : "") + " " + (c.getSurname() != null ? c.getSurname() : "")).trim()
+                            ? ((c.getFirstName() != null ? c.getFirstName() : "") + " "
+                                    + (c.getSurname() != null ? c.getSurname() : "")).trim()
                             : "Cliente #" + t.getId().getIdCustomer();
                     return com.naal.bankmind.dto.Churn.CampaignTargetDTO.builder()
                             .customerId(t.getId().getIdCustomer())
                             .customerName(name)
                             .status(t.getStatus())
-                            .contactDate(t.getContactDate() != null ? t.getContactDate().toLocalDate().toString() : null)
-                            .responseDate(t.getResponseDate() != null ? t.getResponseDate().toLocalDate().toString() : null)
+                            .contactDate(
+                                    t.getContactDate() != null ? t.getContactDate().toLocalDate().toString() : null)
+                            .responseDate(
+                                    t.getResponseDate() != null ? t.getResponseDate().toLocalDate().toString() : null)
                             .build();
                 }).collect(Collectors.toList());
     }
@@ -1467,13 +1533,15 @@ public class ChurnService {
         key.setIdCampaign(campaignId);
         key.setIdCustomer(customerId);
         CampaignTarget target = campaignTargetRepository.findById(key)
-                .orElseThrow(() -> new RuntimeException("Target not found: campaign=" + campaignId + " customer=" + customerId));
+                .orElseThrow(() -> new RuntimeException(
+                        "Target not found: campaign=" + campaignId + " customer=" + customerId));
         target.setStatus(status);
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         if ("CONTACTED".equals(status) && target.getContactDate() == null) {
             target.setContactDate(now);
         } else if ("CONVERTED".equals(status) || "FAILED".equals(status)) {
-            if (target.getContactDate() == null) target.setContactDate(now);
+            if (target.getContactDate() == null)
+                target.setContactDate(now);
             target.setResponseDate(now);
         }
         campaignTargetRepository.save(target);
@@ -1663,19 +1731,19 @@ public class ChurnService {
      */
     public Map<String, Object> getExecutiveBusinessMetrics() {
         // 1. Todos los clientes con predicción disponible (portafolio real analizado).
-        //    Partimos de churn_predictions → un query trae predicción + customer en JOIN.
+        // Partimos de churn_predictions → un query trae predicción + customer en JOIN.
         List<ChurnPredictions> allLatest = churnPredictionsRepository.findLatestForAllCustomers();
 
         if (allLatest.isEmpty()) {
             Map<String, Object> empty = new java.util.HashMap<>();
-            empty.put("totalAnalyzed",    0L);
-            empty.put("highRiskCount",    0L);
-            empty.put("mediumRiskCount",  0L);
-            empty.put("lowRiskCount",     0L);
-            empty.put("totalCampaigns",   0);
-            empty.put("totalTargeted",    0);
-            empty.put("totalConverted",   0);
-            empty.put("totalInvestment",  BigDecimal.ZERO);
+            empty.put("totalAnalyzed", 0L);
+            empty.put("highRiskCount", 0L);
+            empty.put("mediumRiskCount", 0L);
+            empty.put("lowRiskCount", 0L);
+            empty.put("totalCampaigns", 0);
+            empty.put("totalTargeted", 0);
+            empty.put("totalConverted", 0);
+            empty.put("totalInvestment", BigDecimal.ZERO);
             empty.put("strategicInsights", new ArrayList<>());
             return empty;
         }
@@ -1696,17 +1764,17 @@ public class ChurnService {
         BigDecimal investmentCost = BigDecimal.ZERO;
 
         // Risk profile distribution (all analyzed customers)
-        long totalAnalyzed    = 0;
-        long highRiskCount    = 0;  // > 70%
-        long mediumRiskCount  = 0;  // 45–70%
-        long lowRiskCount     = 0;  // < 45%
+        long totalAnalyzed = 0;
+        long highRiskCount = 0; // > 70%
+        long mediumRiskCount = 0; // 45–70%
+        long lowRiskCount = 0; // < 45%
 
         // Counters for strategic insights (customers with churn risk > 0.45)
-        long totalAtRisk      = 0;
-        long inactiveAtRisk   = 0;
+        long totalAtRisk = 0;
+        long inactiveAtRisk = 0;
         long monoProductAtRisk = 0;
-        long seniorAtRisk     = 0;   // age > 45
-        long lowScoreAtRisk   = 0;   // credit_score < 550
+        long seniorAtRisk = 0; // age > 45
+        long lowScoreAtRisk = 0; // credit_score < 550
         java.util.Map<String, Long> countryAtRisk = new java.util.HashMap<>();
 
         for (Customer c : customers) {
@@ -1721,9 +1789,12 @@ public class ChurnService {
 
             // Risk profile distribution
             totalAnalyzed++;
-            if (riskPct > 70)       highRiskCount++;
-            else if (riskPct >= 45) mediumRiskCount++;
-            else                    lowRiskCount++;
+            if (riskPct > 70)
+                highRiskCount++;
+            else if (riskPct >= 45)
+                mediumRiskCount++;
+            else
+                lowRiskCount++;
 
             // Strategic insights: only count customers with meaningful churn risk
             if (risk > 0.45) {
@@ -1742,49 +1813,48 @@ public class ChurnService {
                     lowScoreAtRisk++;
 
                 String country = (c.getCountry() != null && c.getCountry().getCountryDescription() != null)
-                        ? c.getCountry().getCountryDescription() : "Otros";
+                        ? c.getCountry().getCountryDescription()
+                        : "Otros";
                 countryAtRisk.merge(country, 1L, Long::sum);
             }
         }
 
-        // 3. Campaign Summary — excludes the "Interacciones Individuales" pseudo-campaign
+        // 3. Campaign Summary — excludes the "Interacciones Individuales"
+        // pseudo-campaign
         // created internally by logInteraction() to track individual advisor actions.
         List<CampaignLog> activeCampaigns = campaignLogRepository.findAll().stream()
                 .filter(c -> !"Interacciones Individuales".equals(c.getName()))
                 .collect(Collectors.toList());
         int totalCampaigns = activeCampaigns.size();
-        int totalTargeted  = 0;
+        int totalTargeted = 0;
         int totalConverted = campaignTargetRepository.countAllConvertedExcluding("Interacciones Individuales");
         for (CampaignLog camp : activeCampaigns) {
-            investmentCost = investmentCost.add(camp.getBudgetAllocated() != null ? camp.getBudgetAllocated() : BigDecimal.ZERO);
-            totalTargeted  += camp.getTargetedCount()  != null ? camp.getTargetedCount()  : 0;
+            investmentCost = investmentCost
+                    .add(camp.getBudgetAllocated() != null ? camp.getBudgetAllocated() : BigDecimal.ZERO);
+            totalTargeted += camp.getTargetedCount() != null ? camp.getTargetedCount() : 0;
         }
 
         // 4. Strategic Insights — derived from real customer data
         List<Map<String, Object>> strategicInsights = new ArrayList<>();
 
         if (totalAtRisk > 0) {
-            // Helper: convert count to % and classify impact
-            java.util.function.BiFunction<Long, String, Map<String, Object>> makeInsight =
-                (count, label) -> null; // placeholder — defined inline below
-
             long fTotal = totalAtRisk;
 
             // Insight 1: Inactividad Operativa
             int inactivePct = (int) Math.round((double) inactiveAtRisk / fTotal * 100);
             strategicInsights.add(java.util.Map.of(
-                    "cause",   "Inactividad Operativa",
+                    "cause", "Inactividad Operativa",
                     "segment", "Miembros Inactivos",
-                    "impact",  inactivePct >= 40 ? "ALTO" : inactivePct >= 20 ? "MEDIO" : "BAJO",
-                    "pct",     inactivePct));
+                    "impact", inactivePct >= 40 ? "ALTO" : inactivePct >= 20 ? "MEDIO" : "BAJO",
+                    "pct", inactivePct));
 
             // Insight 2: Baja Vinculación de Productos
             int monoProductPct = (int) Math.round((double) monoProductAtRisk / fTotal * 100);
             strategicInsights.add(java.util.Map.of(
-                    "cause",   "Baja Vinculación de Productos",
+                    "cause", "Baja Vinculación de Productos",
                     "segment", "Solo 1 Producto",
-                    "impact",  monoProductPct >= 40 ? "ALTO" : monoProductPct >= 20 ? "MEDIO" : "BAJO",
-                    "pct",     monoProductPct));
+                    "impact", monoProductPct >= 40 ? "ALTO" : monoProductPct >= 20 ? "MEDIO" : "BAJO",
+                    "pct", monoProductPct));
 
             // Insight 3: País con mayor concentración de riesgo
             countryAtRisk.entrySet().stream()
@@ -1792,47 +1862,46 @@ public class ChurnService {
                     .ifPresent(e -> {
                         int countryPct = (int) Math.round((double) e.getValue() / fTotal * 100);
                         strategicInsights.add(java.util.Map.of(
-                                "cause",   "Concentración Geográfica",
+                                "cause", "Concentración Geográfica",
                                 "segment", e.getKey(),
-                                "impact",  countryPct >= 40 ? "ALTO" : "MEDIO",
-                                "pct",     countryPct));
+                                "impact", countryPct >= 40 ? "ALTO" : "MEDIO",
+                                "pct", countryPct));
                     });
 
             // Insight 4: Perfil Senior
             int seniorPct = (int) Math.round((double) seniorAtRisk / fTotal * 100);
             strategicInsights.add(java.util.Map.of(
-                    "cause",   "Perfil Demográfico Senior",
+                    "cause", "Perfil Demográfico Senior",
                     "segment", "Mayores de 45 años",
-                    "impact",  seniorPct >= 40 ? "ALTO" : seniorPct >= 20 ? "MEDIO" : "BAJO",
-                    "pct",     seniorPct));
+                    "impact", seniorPct >= 40 ? "ALTO" : seniorPct >= 20 ? "MEDIO" : "BAJO",
+                    "pct", seniorPct));
 
             // Insight 5: Score crediticio bajo (solo si hay casos significativos)
             if (lowScoreAtRisk > 0) {
                 int lowScorePct = (int) Math.round((double) lowScoreAtRisk / fTotal * 100);
                 strategicInsights.add(java.util.Map.of(
-                        "cause",   "Deterioro Crediticio",
+                        "cause", "Deterioro Crediticio",
                         "segment", "Score < 550",
-                        "impact",  lowScorePct >= 30 ? "ALTO" : lowScorePct >= 15 ? "MEDIO" : "BAJO",
-                        "pct",     lowScorePct));
+                        "impact", lowScorePct >= 30 ? "ALTO" : lowScorePct >= 15 ? "MEDIO" : "BAJO",
+                        "pct", lowScorePct));
             }
 
             // Sort by pct descending — most impactful first
-            strategicInsights.sort((a, b) ->
-                    Integer.compare((Integer) b.get("pct"), (Integer) a.get("pct")));
+            strategicInsights.sort((a, b) -> Integer.compare((Integer) b.get("pct"), (Integer) a.get("pct")));
         }
 
         // 5. Final Payload for Executive View
         Map<String, Object> metrics = new java.util.HashMap<>();
         // Risk profile distribution
-        metrics.put("totalAnalyzed",    totalAnalyzed);
-        metrics.put("highRiskCount",    highRiskCount);
-        metrics.put("mediumRiskCount",  mediumRiskCount);
-        metrics.put("lowRiskCount",     lowRiskCount);
+        metrics.put("totalAnalyzed", totalAnalyzed);
+        metrics.put("highRiskCount", highRiskCount);
+        metrics.put("mediumRiskCount", mediumRiskCount);
+        metrics.put("lowRiskCount", lowRiskCount);
         // Campaign summary (real data)
-        metrics.put("totalCampaigns",   totalCampaigns);
-        metrics.put("totalTargeted",    totalTargeted);
-        metrics.put("totalConverted",   totalConverted);
-        metrics.put("totalInvestment",  investmentCost.setScale(2, java.math.RoundingMode.HALF_UP));
+        metrics.put("totalCampaigns", totalCampaigns);
+        metrics.put("totalTargeted", totalTargeted);
+        metrics.put("totalConverted", totalConverted);
+        metrics.put("totalInvestment", investmentCost.setScale(2, java.math.RoundingMode.HALF_UP));
         // Strategic insights
         metrics.put("strategicInsights", strategicInsights);
 
@@ -1872,11 +1941,13 @@ public class ChurnService {
     }
 
     /**
-     * Returns the churn probability distribution grouped into 10 buckets (0-10%, 10-20%, ..., 90-100%).
+     * Returns the churn probability distribution grouped into 10 buckets (0-10%,
+     * 10-20%, ..., 90-100%).
      * Used by the "Distribución de Probabilidades" histogram.
      */
     public List<PredictionBucketDTO> getPredictionDistribution() {
-        // Use latest prediction per customer — avoids inflating buckets with repeated analyses
+        // Use latest prediction per customer — avoids inflating buckets with repeated
+        // analyses
         List<java.math.BigDecimal> probabilities = churnPredictionsRepository.findLatestChurnProbabilitiesPerCustomer();
 
         int[] counts = new int[10];
@@ -1972,10 +2043,10 @@ public class ChurnService {
      * batch del modelo Python y persiste los resultados como lote activo.
      *
      * Flujo:
-     *  1. Cargar todos los clientes y sus cuentas en memoria.
-     *  2. Enviar en chunks de {@code CHUNK_SIZE} al endpoint /churn/predict-batch.
-     *  3. Por cada resultado: guardar ChurnPrediction + ChurnSampleEntry en BD.
-     *  4. Marcar el nuevo ChurnSampleBatch como activo y desactivar el anterior.
+     * 1. Cargar todos los clientes y sus cuentas en memoria.
+     * 2. Enviar en chunks de {@code CHUNK_SIZE} al endpoint /churn/predict-batch.
+     * 3. Por cada resultado: guardar ChurnPrediction + ChurnSampleEntry en BD.
+     * 4. Marcar el nuevo ChurnSampleBatch como activo y desactivar el anterior.
      *
      * @param targetSize  Ignorado (se predicen todos los clientes). Mantenido
      *                    por compatibilidad con llamadas existentes.
@@ -2017,13 +2088,13 @@ public class ChurnService {
             System.out.printf("[BatchPredict] Chunk %d/%d — clientes %d-%d%n",
                     chunkNum, totalChunks, i + 1, Math.min(i + CHUNK_SIZE, (int) totalInDB));
             try {
-                List<ChurnBatchResultItemDTO> results =
-                        callPythonApiBatch(chunk, customerLookup, accountMap);
+                List<ChurnBatchResultItemDTO> results = callPythonApiBatch(chunk, customerLookup, accountMap);
                 LocalDateTime now = LocalDateTime.now();
                 for (ChurnBatchResultItemDTO r : results) {
-                    Customer c   = customerLookup.get(r.getId());
+                    Customer c = customerLookup.get(r.getId());
                     AccountDetails acc = accountMap.get(r.getId());
-                    if (c == null || acc == null) continue;
+                    if (c == null || acc == null)
+                        continue;
 
                     ChurnPredictions pred = new ChurnPredictions();
                     pred.setCustomer(c);
@@ -2061,7 +2132,8 @@ public class ChurnService {
         List<ChurnSampleEntry> entries = new ArrayList<>(newPredictions.keySet()).stream()
                 .map(id -> {
                     Customer c = customerLookup.get(id);
-                    if (c == null) return null;
+                    if (c == null)
+                        return null;
                     ChurnSampleEntry entry = new ChurnSampleEntry();
                     entry.setBatch(batch);
                     entry.setCustomer(c);
@@ -2081,8 +2153,8 @@ public class ChurnService {
      */
     @Transactional(readOnly = true)
     public RiskIntelligenceDTO getRiskIntelligenceData() {
-        java.util.Optional<ChurnSampleBatch> activeBatch =
-                churnSampleBatchRepository.findTopByIsActiveTrueOrderByCreatedAtDesc();
+        java.util.Optional<ChurnSampleBatch> activeBatch = churnSampleBatchRepository
+                .findTopByIsActiveTrueOrderByCreatedAtDesc();
 
         if (activeBatch.isEmpty()) {
             return RiskIntelligenceDTO.builder()
@@ -2116,17 +2188,21 @@ public class ChurnService {
         // Si un estrato tiene menos entradas que su cuota, el sobrante se
         // redistribuye al estrato de mayor prioridad siguiente.
         if (entries.size() > matrixSampleSize) {
-            List<ChurnSampleEntry> alto  = new ArrayList<>();
+            List<ChurnSampleEntry> alto = new ArrayList<>();
             List<ChurnSampleEntry> medio = new ArrayList<>();
-            List<ChurnSampleEntry> bajo  = new ArrayList<>();
+            List<ChurnSampleEntry> bajo = new ArrayList<>();
 
             for (ChurnSampleEntry e : entries) {
                 ChurnPredictions pred = predMap.get(e.getCustomer().getIdCustomer());
                 String risk = (pred != null && pred.getRiskLevel() != null)
-                        ? pred.getRiskLevel() : "Bajo";
-                if ("Alto".equals(risk))       alto.add(e);
-                else if ("Medio".equals(risk)) medio.add(e);
-                else                           bajo.add(e);
+                        ? pred.getRiskLevel()
+                        : "Bajo";
+                if ("Alto".equals(risk))
+                    alto.add(e);
+                else if ("Medio".equals(risk))
+                    medio.add(e);
+                else
+                    bajo.add(e);
             }
 
             java.util.Comparator<ChurnSampleEntry> byProbDesc = (a, b) -> {
@@ -2140,15 +2216,15 @@ public class ChurnService {
             medio.sort(byProbDesc);
             bajo.sort(byProbDesc);
 
-            int quotaAlto  = (int) (matrixSampleSize * 0.50);
+            int quotaAlto = (int) (matrixSampleSize * 0.50);
             int quotaMedio = (int) (matrixSampleSize * 0.35);
-            int quotaBajo  = matrixSampleSize - quotaAlto - quotaMedio;
+            int quotaBajo = matrixSampleSize - quotaAlto - quotaMedio;
 
-            int takenAlto  = Math.min(alto.size(),  quotaAlto);
-            int surplus1   = quotaAlto  - takenAlto;
+            int takenAlto = Math.min(alto.size(), quotaAlto);
+            int surplus1 = quotaAlto - takenAlto;
             int takenMedio = Math.min(medio.size(), quotaMedio + surplus1);
-            int surplus2   = (quotaMedio + surplus1) - takenMedio;
-            int takenBajo  = Math.min(bajo.size(),  quotaBajo  + surplus2);
+            int surplus2 = (quotaMedio + surplus1) - takenMedio;
+            int takenBajo = Math.min(bajo.size(), quotaBajo + surplus2);
 
             List<ChurnSampleEntry> sampled = new ArrayList<>(takenAlto + takenMedio + takenBajo);
             sampled.addAll(alto.subList(0, takenAlto));
@@ -2156,7 +2232,8 @@ public class ChurnService {
             sampled.addAll(bajo.subList(0, takenBajo));
             entries = sampled;
 
-            System.out.printf("[RiskIntel] Muestra estratificada aplicada — Alto=%d Medio=%d Bajo=%d → total=%d (de %d en batch)%n",
+            System.out.printf(
+                    "[RiskIntel] Muestra estratificada aplicada — Alto=%d Medio=%d Bajo=%d → total=%d (de %d en batch)%n",
                     takenAlto, takenMedio, takenBajo, entries.size(), batch.getSampleSize());
         }
         // ─────────────────────────────────────────────────────────────────────
@@ -2207,7 +2284,8 @@ public class ChurnService {
         }
 
         String country = (c.getCountry() != null && c.getCountry().getCountryDescription() != null)
-                ? c.getCountry().getCountryDescription() : "Desconocido";
+                ? c.getCountry().getCountryDescription()
+                : "Desconocido";
 
         String name = ((c.getFirstName() != null ? c.getFirstName() : "")
                 + " " + (c.getSurname() != null ? c.getSurname() : "")).trim();

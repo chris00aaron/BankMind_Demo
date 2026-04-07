@@ -15,7 +15,7 @@ public class AtmModuleStartupRunner {
     private final MigrationService migrationService;
 
     //Se ejecuta al iniciar el modulo
-    //@EventListener(ApplicationReadyEvent.class)
+    @EventListener(ApplicationReadyEvent.class)
     public void runAfterStartup() {
         migrationService.ejecutarSync();
     }

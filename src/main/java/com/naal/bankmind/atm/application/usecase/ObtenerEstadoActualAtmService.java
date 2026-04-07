@@ -13,8 +13,11 @@ import com.naal.bankmind.atm.infrastructure.mapper.AtmStatusBalanceProjectionMap
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ObtenerEstadoActualAtmService implements ObtenerEstadoActualAtmUseCase {
 
     private final JpaAtmRepository jpaAtmRepository;

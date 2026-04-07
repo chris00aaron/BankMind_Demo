@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.atm.domain.exception.ModeloPrediccionIndisponibleException;
 import com.naal.bankmind.atm.domain.model.ConfidenceInterval;
@@ -23,8 +23,10 @@ import com.naal.bankmind.entity.atm.WithdrawalModel;
 
 import lombok.AllArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @AllArgsConstructor
-@Component
+@Repository
 public class RetiroEfectivoAtmPrediccionDbAdapter implements RetiroEfectivoAtmPrediccionRepository {
 
     private final ConfidenceModelRepository confidenceModelRepository;
@@ -32,6 +34,7 @@ public class RetiroEfectivoAtmPrediccionDbAdapter implements RetiroEfectivoAtmPr
     private final JpaDailyWithdrawalPredictionRepository jpaDailyWithdrawalPredictionRepository;
     
     @Override
+    @Transactional(readOnly = true)
     public List<RetiroEfectivoAtmPrediccion> obtenerPrediccionesPorFecha(LocalDate fecha) {
         List<DailyWithdrawalPrediction> predicciones = jpaDailyWithdrawalPredictionRepository.findByPredictionDate(fecha);
 
@@ -52,6 +55,7 @@ public class RetiroEfectivoAtmPrediccionDbAdapter implements RetiroEfectivoAtmPr
 
 
     @Override
+    @Transactional
     public List<RetiroEfectivoAtmPrediccion> guardarPredicciones(List<OutputDataPredictionRetiroAtm> nuevasPredicciones) {
 
         ConfidenceModel confidenceModel = confidenceModelRepository.obtenerConfidenceModelActivo()

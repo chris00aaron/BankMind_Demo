@@ -15,9 +15,11 @@ import com.naal.bankmind.atm.domain.ports.out.repository.PromedioRetiroHistorico
 
 import lombok.AllArgsConstructor;
 
-@AllArgsConstructor
+import org.springframework.transaction.annotation.Transactional;
 
+@AllArgsConstructor
 @Service
+@Transactional(readOnly = true) 
 public class BuscarRetiroHistoricoService implements BuscarRetiroHistoricoUseCase {
 
     private final PromedioRetiroHistoricoRepository promedioRetiroHistoricoRepository;

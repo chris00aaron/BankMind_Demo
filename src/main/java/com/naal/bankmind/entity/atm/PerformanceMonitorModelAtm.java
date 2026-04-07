@@ -47,8 +47,7 @@ public class PerformanceMonitorModelAtm {
     @JoinColumn(name = "id_withdrawal_model", // Columna de la tabla dataset_withdrawal_prediction (FK)
             referencedColumnName = "id", // Columna de la tabla dataset_withdrawal_prediction (PK)
             foreignKey = @ForeignKey(name = "fk_performance_monitor_model_atm-withdrawal_model"), 
-            nullable = false, // No puede ser null
-            unique = true) // Debe ser único
+            nullable = false) // No puede ser nul 
     private WithdrawalModel withdrawalModel;
 
     @JdbcTypeCode(SqlTypes.JSON)

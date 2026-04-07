@@ -22,7 +22,7 @@ public class RealizarPrediccionService implements RealizarPrediccionUseCase {
 
     private final InputDataPredictionRetiroAtmRepository inputDataPredictionRetiroAtmRepository;
 
-    private WithdrawalPredictionIA withdrawalPredictionService;
+    private final WithdrawalPredictionIA withdrawalPredictionService;
 
     @Override
     public List<OutputDataPredictionRetiroAtm> generarPrediccion(LocalDate fecha) {

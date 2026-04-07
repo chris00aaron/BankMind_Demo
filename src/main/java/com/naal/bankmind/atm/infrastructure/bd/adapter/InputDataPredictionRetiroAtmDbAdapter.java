@@ -3,7 +3,7 @@ package com.naal.bankmind.atm.infrastructure.bd.adapter;
 import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.atm.domain.exception.DataInsuficienteParaPredecirException;
 import com.naal.bankmind.atm.domain.model.InputDataPredictionRetiroAtm;
@@ -16,7 +16,7 @@ import com.naal.bankmind.entity.atm.TransactionType;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
-@Component
+@Repository
 public class InputDataPredictionRetiroAtmDbAdapter implements InputDataPredictionRetiroAtmRepository {
 
     private final JpaDailyAtmTransactionRepository jpaDailyAtmTransactionRepository;

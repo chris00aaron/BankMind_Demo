@@ -185,7 +185,8 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
             @CookieValue(name = "accessToken", required = false) String cookieToken,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            HttpServletRequest httpRequest) {
         try {
             // Validar que las contraseñas coincidan
             if (!request.getNewPassword().equals(request.getConfirmPassword())) {
@@ -207,7 +208,8 @@ public class AuthController {
             }
 
             String email = jwtService.extractUsername(token);
-            authService.changePassword(email, request.getNewPassword());
+            String ipAddress = getClientIp(httpRequest);
+            authService.changePassword(email, request.getNewPassword(), ipAddress);
 
             return ResponseEntity.ok(ApiResponse.success(
                     "Contraseña actualizada exitosamente. Por favor inicie sesión nuevamente."));

@@ -1,7 +1,7 @@
 package com.naal.bankmind.config.Default;
 
 import com.naal.bankmind.entity.AccountDetails;
-import com.naal.bankmind.entity.MonthlyHistory;
+import com.naal.bankmind.entity.Default.MonthlyHistory;
 import com.naal.bankmind.repository.Default.AccountDetailsRepository;
 import com.naal.bankmind.repository.Default.MonthlyHistoryRepository;
 

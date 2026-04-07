@@ -18,8 +18,11 @@ import com.naal.bankmind.atm.domain.ports.out.repository.SelfTrainingAuditReposi
 
 import lombok.AllArgsConstructor;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @AllArgsConstructor
 @Service
+@Transactional(readOnly = true)
 public class ObtenerSelfTrainingAuditService implements ObtenerSelfTrainingAuditUseCase {
 
     private final RegistroAutoentrenamientoRepository registroAutoentrenamientoRepository;
@@ -37,6 +40,7 @@ public class ObtenerSelfTrainingAuditService implements ObtenerSelfTrainingAudit
     public RegistroAutoentrenamientoDetailsDTO obtenerDetallePorId(Long id) {
         RegistroAutoentrenamiento model = registroAutoentrenamientoRepository.findById(id)
                 .orElseThrow(() -> new SelfTrainingAuditNotFoundException(id));
+        //Mapeamos el DTO
         return RegistroAutoentrenamientoMapper.toRegistroAutoentrenamientoDetailsDTO(model);
     }
 

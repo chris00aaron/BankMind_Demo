@@ -1,9 +1,11 @@
-package com.naal.bankmind.entity;
+package com.naal.bankmind.entity.Default;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+
+import com.naal.bankmind.entity.AccountDetails;
 
 @Data
 @Entity

@@ -219,7 +219,7 @@ public class AuthService {
      * Cambiar contraseña de usuario (para usuarios con contraseña predeterminada)
      */
     @Transactional
-    public void changePassword(String email, String newPassword) {
+    public void changePassword(String email, String newPassword, String ipAddress) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
 
@@ -233,5 +233,8 @@ public class AuthService {
         refreshTokenRepository.revokeAllUserTokens(user);
 
         log.info("🔐 Contraseña cambiada exitosamente para usuario: {}", email);
+
+        // Registrar auditoría: el usuario cambió su propia contraseña
+        auditService.logUserUpdate(user, user, "password", "[PROTEGIDO]", "[PROTEGIDO]", ipAddress);
     }
 }

@@ -18,15 +18,15 @@ import java.util.List;
 @AllArgsConstructor
 public class DashboardKpisDTO {
     private long totalCustomers;
-    private long customersAtRisk; // clientes con risk >= 50
-    private BigDecimal capitalAtRisk; // SUM(balance * risk/100) donde risk >= 50
-    private double retentionRate; // % clientes con risk < 50
+    private long customersAtRisk; // clientes con risk >= 45
+    private BigDecimal capitalAtRisk; // SUM(balance * risk/100) donde risk >= 45
+    private double retentionRate; // % clientes con risk < 45
     private List<ScatterPointDTO> scatterData; // Top N para el chart
 
     // Risk distribution for donut chart
     private long highRiskCount; // risk > 70
-    private long mediumRiskCount; // risk 50-70
-    private long lowRiskCount; // risk < 50
+    private long mediumRiskCount; // risk 45-70
+    private long lowRiskCount; // risk < 45
 
     @Data
     @Builder

@@ -58,9 +58,9 @@ public class SecurityConfig {
                                 "/favicon.ico")
                         .permitAll()
                         // Rutas del módulo fraude
-                        .requestMatchers("/api/fraud/**").hasAnyRole("ADMIN", "OPERARIO_FRAUDE")
+                        .requestMatchers("/api/fraud/**").hasAnyRole("ADMIN", "OPERARIO_ANOMALIAS")
                         // Rutas del módulo churn
-                        .requestMatchers("/api/v1/churn/**").hasAnyRole("ADMIN", "OPERARIO_CHURN")
+                        .requestMatchers("/api/v1/churn/**").hasAnyRole("ADMIN", "OPERARIO_FUGA_DEMANDA")
                         // Rutas del módulo morosidad
                         .requestMatchers("/api/morosidad/**").hasAnyRole("ADMIN", "OPERARIO_MOROSIDAD")
                         // Path de ATM

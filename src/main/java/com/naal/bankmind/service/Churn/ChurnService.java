@@ -1312,7 +1312,7 @@ public class ChurnService {
      * Used for the "preview" shown in the campaign creation modal.
      */
     public int previewSegmentCount(Long segmentId) {
-        RetentionSegmentDef segment = retentionSegmentDefRepository.findById(segmentId)
+        RetentionSegmentDef segment = retentionSegmentDefRepository.findById(segmentId.intValue())
                 .orElseThrow(() -> new RuntimeException("Segment not found: " + segmentId));
 
         List<java.util.Map<String, Object>> rules = new ArrayList<>();

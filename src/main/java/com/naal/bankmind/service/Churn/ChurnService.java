@@ -46,6 +46,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -92,6 +93,9 @@ public class ChurnService {
 
     @Value("${churn.api.base-url:http://localhost:8001}")
     private String churnApiBaseUrl;
+
+    @Value("${churn.monitor.api.base-url:http://localhost:8001}")
+    private String churnMonitorApiBaseUrl;
 
     /**
      * Máximo de clientes en la muestra estratificada para la Matriz de Prioridad de
@@ -731,7 +735,7 @@ public class ChurnService {
     @SuppressWarnings("unchecked")
     public TrainResultDTO trainModel() {
         try {
-            String url = churnApiBaseUrl + "/churn/train";
+            String url = churnMonitorApiBaseUrl + "/fuga/train";
             System.out.println("---> Calling Python Auto-Training API: " + url);
 
             HttpHeaders headers = new HttpHeaders();
@@ -1653,7 +1657,7 @@ public class ChurnService {
      */
     public PerformanceStatusDTO getPerformanceStatus() {
         try {
-            String url = churnApiBaseUrl + "/churn/monitor/status";
+            String url = churnMonitorApiBaseUrl + "/fuga/monitor/status";
             System.out.println("---> Calling Python Monitor API: GET " + url);
 
             Map<String, Object> rawResponse = restTemplate.getForObject(url, Map.class);
@@ -1690,7 +1694,7 @@ public class ChurnService {
      */
     public PerformanceStatusDTO triggerPerformanceEvaluation() {
         try {
-            String url = churnApiBaseUrl + "/churn/monitor/evaluate";
+            String url = churnMonitorApiBaseUrl + "/fuga/monitor/evaluate";
             System.out.println("---> Calling Python Monitor API: POST " + url);
 
             HttpHeaders headers = new HttpHeaders();
@@ -1918,12 +1922,20 @@ public class ChurnService {
      * Metrics are converted to 0-100 scale for direct frontend display.
      */
     public List<TrainingHistoryPointDTO> getTrainingEvolution() {
-        List<ChurnTrainingHistory> raw = churnTrainingHistoryRepository.findTop30ByOrderByTrainingDateDesc();
+        // Use only production-evaluation records (evaluatedSamples IS NOT NULL).
+        // Training-run records use SMOTE-balanced test sets and are not comparable
+        // with real ground-truth measurements from the performance monitor.
+        List<ChurnTrainingHistory> raw = churnTrainingHistoryRepository
+                .findTop30ByEvaluatedSamplesIsNotNullOrderByTrainingDateDesc();
+        if (raw.isEmpty()) {
+            // Fallback: if no evaluation records exist yet, show training records
+            raw = churnTrainingHistoryRepository.findTop30ByOrderByTrainingDateDesc();
+        }
         Collections.reverse(raw); // Ascending chronological order for the chart
 
         return raw.stream().map(h -> {
             String dateLabel = h.getTrainingDate() != null
-                    ? h.getTrainingDate().toLocalDate().toString()
+                    ? h.getTrainingDate().format(DateTimeFormatter.ofPattern("MM-dd HH:mm:ss"))
                     : "N/A";
 
             return TrainingHistoryPointDTO.builder()

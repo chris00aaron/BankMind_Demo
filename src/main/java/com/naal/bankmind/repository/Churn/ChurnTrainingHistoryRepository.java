@@ -32,4 +32,11 @@ public interface ChurnTrainingHistoryRepository extends JpaRepository<ChurnTrain
      * Returns in DESC order; caller reverses for chronological display.
      */
     List<ChurnTrainingHistory> findTop30ByOrderByTrainingDateDesc();
+
+    /**
+     * Gets the 30 most recent PRODUCTION EVALUATION records (evaluatedSamples IS NOT NULL).
+     * Excludes training-run records whose metrics come from a SMOTE-balanced test split
+     * and are not comparable to real-world production measurements.
+     */
+    List<ChurnTrainingHistory> findTop30ByEvaluatedSamplesIsNotNullOrderByTrainingDateDesc();
 }

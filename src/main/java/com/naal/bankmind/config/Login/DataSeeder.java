@@ -2,7 +2,9 @@ package com.naal.bankmind.config.Login;
 
 import com.naal.bankmind.entity.Login.Role;
 import com.naal.bankmind.entity.Login.User;
+import com.naal.bankmind.entity.RetentionSegmentDef;
 import com.naal.bankmind.entity.RetentionStrategyDef;
+import com.naal.bankmind.repository.Churn.RetentionSegmentDefRepository;
 import com.naal.bankmind.repository.Churn.RetentionStrategyDefRepository;
 import com.naal.bankmind.repository.Shared.RoleRepository;
 import com.naal.bankmind.repository.Shared.UserRepository;
@@ -32,6 +34,7 @@ public class DataSeeder implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final RetentionStrategyDefRepository retentionStrategyDefRepository;
+    private final RetentionSegmentDefRepository retentionSegmentDefRepository;
     private final PasswordEncoder passwordEncoder;
 
     // Definición de roles del sistema
@@ -65,6 +68,7 @@ public class DataSeeder implements CommandLineRunner {
             seedRoles();
             seedUsers();
             seedRetentionStrategies();
+            seedRetentionSegments();
             log.info("✅ Carga de datos iniciales completada.");
         } catch (Exception e) {
             log.error("❌ Error durante la carga de datos iniciales: {}", e.getMessage());
@@ -108,6 +112,43 @@ public class DataSeeder implements CommandLineRunner {
             retentionStrategyDefRepository.save(s3);
 
             log.info("📋 Estrategias de retención creadas.");
+        }
+    }
+
+    /**
+     * Crea los segmentos de retención por defecto para el módulo de Fuga.
+     */
+    private void seedRetentionSegments() {
+        if (retentionSegmentDefRepository.count() == 0) {
+            RetentionSegmentDef seg1 = new RetentionSegmentDef();
+            seg1.setName("VIPs en Alto Riesgo");
+            seg1.setDescription("Balance superior a 100.000 EUR con un solo producto contratado");
+            seg1.setRulesJson("[{\"op\":\">\",\"val\":100000,\"field\":\"balance\"},{\"op\":\"<\",\"val\":2,\"field\":\"products\"}]");
+            seg1.setCreatedAt(LocalDateTime.now());
+            retentionSegmentDefRepository.save(seg1);
+
+            RetentionSegmentDef seg2 = new RetentionSegmentDef();
+            seg2.setName("Jóvenes con Pocos Productos");
+            seg2.setDescription("Menores de 30 años con menos de 2 productos contratados");
+            seg2.setRulesJson("[{\"op\":\"<\",\"val\":30,\"field\":\"age\"},{\"op\":\"<\",\"val\":2,\"field\":\"products\"}]");
+            seg2.setCreatedAt(LocalDateTime.now());
+            retentionSegmentDefRepository.save(seg2);
+
+            RetentionSegmentDef seg3 = new RetentionSegmentDef();
+            seg3.setName("Clientes Mono-Producto con Bajo Balance");
+            seg3.setDescription("Un solo producto y balance menor a 5.000 EUR");
+            seg3.setRulesJson("[{\"op\":\"<\",\"val\":5000,\"field\":\"balance\"},{\"op\":\"==\",\"val\":1,\"field\":\"products\"}]");
+            seg3.setCreatedAt(LocalDateTime.now());
+            retentionSegmentDefRepository.save(seg3);
+
+            RetentionSegmentDef seg4 = new RetentionSegmentDef();
+            seg4.setName("Perfil Solvente Sin Fidelizar");
+            seg4.setDescription("Score crediticio alto con menos de 3 productos contratados");
+            seg4.setRulesJson("[{\"op\":\">\",\"val\":650,\"field\":\"score\"},{\"op\":\"<\",\"val\":3,\"field\":\"products\"}]");
+            seg4.setCreatedAt(LocalDateTime.now());
+            retentionSegmentDefRepository.save(seg4);
+
+            log.info("📋 Segmentos de retención creados.");
         }
     }
 

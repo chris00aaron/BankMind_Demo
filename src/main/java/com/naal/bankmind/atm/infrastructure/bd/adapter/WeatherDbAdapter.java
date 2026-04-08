@@ -3,6 +3,7 @@ package com.naal.bankmind.atm.infrastructure.bd.adapter;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Repository;
 
 import com.naal.bankmind.atm.domain.model.Weather;
@@ -28,7 +29,7 @@ public class WeatherDbAdapter implements WeatherRepository {
     }
 
     @Override
-    public Optional<Weather> findById(Short idWeather) {
+    public Optional<Weather> findById(@NonNull Short idWeather) {
         return jpaWeatherRepository.findById(idWeather).map(weather -> 
                 new Weather(weather.getIdWeather(), 
                             weather.getDescription(), 

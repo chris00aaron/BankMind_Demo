@@ -46,6 +46,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1923,7 +1924,7 @@ public class ChurnService {
 
         return raw.stream().map(h -> {
             String dateLabel = h.getTrainingDate() != null
-                    ? h.getTrainingDate().toLocalDate().toString()
+                    ? h.getTrainingDate().format(DateTimeFormatter.ofPattern("MM-dd HH:mm:ss"))
                     : "N/A";
 
             return TrainingHistoryPointDTO.builder()

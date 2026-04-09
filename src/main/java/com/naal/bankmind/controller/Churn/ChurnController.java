@@ -39,7 +39,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/v1/churn")
-@CrossOrigin(origins = { "http://localhost:5173", "http://localhost:5174", "http://localhost:3000" })
 public class ChurnController {
 
     private final ChurnService churnService;

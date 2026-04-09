@@ -26,7 +26,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/fraud/monitoring")
-@CrossOrigin(origins = { "http://localhost:5173", "http://localhost:3000" })
 @RequiredArgsConstructor
 public class FraudMonitoringController {
 

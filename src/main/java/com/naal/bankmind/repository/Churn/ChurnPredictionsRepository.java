@@ -28,11 +28,14 @@ public interface ChurnPredictionsRepository extends JpaRepository<ChurnPredictio
     List<ChurnPredictions> findAllWithCustomerByIdCustomer(@Param("idCustomer") Long idCustomer);
 
     /**
-     * Returns all churn probability values for the distribution histogram.
-     * Bucketing is handled in the service layer.
+     * Returns the latest churn probability per customer for the distribution histogram.
+     * Uses only the most recent prediction per customer to reflect the current portfolio state.
      */
-    @Query("SELECT cp.churnProbability FROM ChurnPredictions cp WHERE cp.churnProbability IS NOT NULL")
-    List<java.math.BigDecimal> findAllChurnProbabilities();
+    @Query("SELECT cp.churnProbability FROM ChurnPredictions cp " +
+            "WHERE cp.idChurnPrediction IN (" +
+            "  SELECT MAX(cp2.idChurnPrediction) FROM ChurnPredictions cp2 GROUP BY cp2.customer.idCustomer" +
+            ") AND cp.churnProbability IS NOT NULL")
+    List<java.math.BigDecimal> findLatestChurnProbabilitiesPerCustomer();
 
     /**
      * Gets the latest prediction for each customer in a list of IDs.
@@ -46,4 +49,27 @@ public interface ChurnPredictionsRepository extends JpaRepository<ChurnPredictio
             "  GROUP BY cp2.customer.idCustomer" +
             ")")
     List<ChurnPredictions> findLatestByCustomerIds(@Param("customerIds") List<Long> customerIds);
+
+    /**
+     * Returns the latest prediction for ALL customers that have at least one prediction.
+     * Used by Centro de Mando KPIs and Visión Ejecutiva to reflect the full predicted portfolio.
+     */
+    @Query("SELECT cp FROM ChurnPredictions cp " +
+            "JOIN FETCH cp.customer c " +
+            "WHERE cp.idChurnPrediction IN (" +
+            "  SELECT MAX(cp2.idChurnPrediction) FROM ChurnPredictions cp2 " +
+            "  GROUP BY cp2.customer.idCustomer" +
+            ")")
+    List<ChurnPredictions> findLatestForAllCustomers();
+
+    /**
+     * Returns customer IDs whose latest prediction matches the given risk level.
+     * Used for pre-filtering before pagination in Centro de Mando.
+     */
+    @Query("SELECT cp.customer.idCustomer FROM ChurnPredictions cp " +
+            "WHERE cp.idChurnPrediction IN (" +
+            "  SELECT MAX(cp2.idChurnPrediction) FROM ChurnPredictions cp2 " +
+            "  GROUP BY cp2.customer.idCustomer" +
+            ") AND LOWER(cp.riskLevel) = LOWER(:riskLevel)")
+    List<Long> findCustomerIdsByLatestRiskLevel(@Param("riskLevel") String riskLevel);
 }

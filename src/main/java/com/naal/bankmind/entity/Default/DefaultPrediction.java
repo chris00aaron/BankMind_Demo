@@ -5,8 +5,6 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-import com.naal.bankmind.entity.MonthlyHistory;
-
 @Data
 @Entity
 @Table(name = "default_prediction")

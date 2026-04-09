@@ -24,6 +24,7 @@ public class PasswordResetService {
     private final PasswordResetRequestRepository passwordResetRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
     @Transactional
     public void requestPasswordReset(String email) {
@@ -64,7 +65,7 @@ public class PasswordResetService {
     private static final String DEFAULT_PASSWORD = "admin123";
 
     @Transactional
-    public void approveRequest(Long requestId, User processedBy) {
+    public void approveRequest(Long requestId, User processedBy, String ipAddress) {
         PasswordResetRequest request = passwordResetRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Solicitud no encontrada"));
 
@@ -87,6 +88,9 @@ public class PasswordResetService {
 
         log.info("✅ Contraseña resetada a predeterminada para usuario: {}, Procesado por: {}",
                 user.getEmail(), processedBy.getEmail());
+
+        // Registrar en auditoría
+        auditService.logUserUpdate(user, processedBy, "password", "[PROTEGIDO]", "[PROTEGIDO]", ipAddress);
     }
 
     @Transactional

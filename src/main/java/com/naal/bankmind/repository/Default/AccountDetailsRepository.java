@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,4 +38,16 @@ public interface AccountDetailsRepository extends JpaRepository<AccountDetails, 
      */
     @Query("SELECT ad FROM AccountDetails ad WHERE ad.customer.idCustomer IN :customerIds")
     List<AccountDetails> findByCustomerIds(@Param("customerIds") List<Long> customerIds);
+
+    /**
+     * Returns customer IDs filtered by balance range.
+     * Used for backend-side segment filtering (Corporate/SME/Personal).
+     * Pass null to skip a bound (e.g. balanceMax=null means no upper limit).
+     */
+    @Query("SELECT ad.customer.idCustomer FROM AccountDetails ad " +
+            "WHERE (:balanceMin IS NULL OR ad.balance >= :balanceMin) " +
+            "AND (:balanceMax IS NULL OR ad.balance < :balanceMax)")
+    List<Long> findCustomerIdsByBalanceRange(
+            @Param("balanceMin") BigDecimal balanceMin,
+            @Param("balanceMax") BigDecimal balanceMax);
 }

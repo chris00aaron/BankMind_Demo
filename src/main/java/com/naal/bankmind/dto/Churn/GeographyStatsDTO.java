@@ -13,8 +13,8 @@ public class GeographyStatsDTO {
     private String flag;
     private int totalCustomers;
     private int highRisk; // > 70%
-    private int mediumRisk; // 50-70%
-    private int lowRisk; // < 50%
+    private int mediumRisk; // 45-70%
+    private int lowRisk; // < 45%
     private BigDecimal avgBalance;
     private BigDecimal churnRate;
 }

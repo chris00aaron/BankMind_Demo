@@ -48,10 +48,6 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/**",
-                                "/api/fraud/confirm/**", // Confirmación de transacciones legítimas
-                                "/api/fraud/block/**", // Reporte de fraude y bloqueo
-                                "/api/v1/churn/**", // Rutas de churn (ajustado para coincidir con el controlador)
-                                "/api/morosidad/**", // Módulo de morosidad unificado
                                 "/error",
                                 "/actuator/health",
                                 // Recursos estáticos (imágenes, CSS, JS, etc.)
@@ -61,6 +57,12 @@ public class SecurityConfig {
                                 "/static/**",
                                 "/favicon.ico")
                         .permitAll()
+                        // Rutas del módulo fraude
+                        .requestMatchers("/api/fraud/**").hasAnyRole("ADMIN", "OPERARIO_ANOMALIAS")
+                        // Rutas del módulo churn
+                        .requestMatchers("/api/v1/churn/**").hasAnyRole("ADMIN", "OPERARIO_FUGA_DEMANDA")
+                        // Rutas del módulo morosidad
+                        .requestMatchers("/api/morosidad/**").hasAnyRole("ADMIN", "OPERARIO_MOROSIDAD")
                         // Path de ATM
                         .requestMatchers("/api/atm/**").hasAnyRole("ADMIN", "OPERARIO_DEMANDA_EFECTIVO")
                         // Rutas de admin

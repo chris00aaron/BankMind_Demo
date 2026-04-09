@@ -3,7 +3,7 @@
 -- Genera el dataset de entrenamiento para el modelo de morosidad
 -- usando sliding window de 6 meses (features) + 1 mes (label)
 --
--- Ejecutar este script en PgAdmin o psql contra BankMindDB
+-- Ejecutar este script en PgAdmin o psql contra BankMindBetta_v2
 -- =============================================================================
 
 -- Eliminar si ya existe

@@ -120,6 +120,25 @@ public class AdminUserController {
         }
     }
 
+    /**
+     * Reactivar usuario desactivado
+     */
+    @PostMapping("/{id}/reactivate")
+    public ResponseEntity<ApiResponse<Void>> reactivateUser(
+            @PathVariable Long id,
+            Authentication authentication,
+            HttpServletRequest httpRequest) {
+        try {
+            User adminUser = userDetailsService.findUserByEmail(authentication.getName());
+            String ipAddress = getClientIp(httpRequest);
+            adminUserService.reactivateUser(id, adminUser, ipAddress);
+            return ResponseEntity.ok(ApiResponse.success("Usuario reactivado exitosamente"));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     private String getClientIp(HttpServletRequest request) {
         String xForwardedFor = request.getHeader("X-Forwarded-For");
         if (xForwardedFor != null && !xForwardedFor.isEmpty()) {

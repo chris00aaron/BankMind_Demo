@@ -3,6 +3,8 @@ package com.naal.bankmind.atm.domain.ports.out.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.lang.NonNull;
+
 import com.naal.bankmind.atm.domain.model.Weather;
 
 public interface WeatherRepository {
@@ -18,5 +20,5 @@ public interface WeatherRepository {
      * @param idWeather ID del clima
      * @return Clima
      */
-    Optional<Weather> findById(Short idWeather);
+    Optional<Weather> findById(@NonNull Short idWeather);
 }

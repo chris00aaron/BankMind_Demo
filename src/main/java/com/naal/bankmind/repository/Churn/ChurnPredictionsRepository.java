@@ -29,47 +29,45 @@ public interface ChurnPredictionsRepository extends JpaRepository<ChurnPredictio
 
     /**
      * Returns the latest churn probability per customer for the distribution histogram.
-     * Uses only the most recent prediction per customer to reflect the current portfolio state.
+     * DISTINCT ON uses idx_churn_pred_customer_id_desc — evita HashAggregate sobre 39k filas.
      */
-    @Query("SELECT cp.churnProbability FROM ChurnPredictions cp " +
-            "WHERE cp.idChurnPrediction IN (" +
-            "  SELECT MAX(cp2.idChurnPrediction) FROM ChurnPredictions cp2 GROUP BY cp2.customer.idCustomer" +
-            ") AND cp.churnProbability IS NOT NULL")
+    @Query(value = "SELECT DISTINCT ON (id_customer) churn_probability " +
+            "FROM churn_predictions " +
+            "WHERE churn_probability IS NOT NULL " +
+            "ORDER BY id_customer, id_churn_prediction DESC",
+            nativeQuery = true)
     List<java.math.BigDecimal> findLatestChurnProbabilitiesPerCustomer();
 
     /**
      * Gets the latest prediction for each customer in a list of IDs.
-     * Uses MAX(id) per customer group to safely pick one row per customer,
-     * avoiding duplicate-date issues and cross-join problems in PostgreSQL.
+     * DISTINCT ON + idx_churn_pred_customer_id_desc — Index Scan en lugar de HashAggregate.
      */
-    @Query("SELECT cp FROM ChurnPredictions cp " +
-            "WHERE cp.idChurnPrediction IN (" +
-            "  SELECT MAX(cp2.idChurnPrediction) FROM ChurnPredictions cp2 " +
-            "  WHERE cp2.customer.idCustomer IN :customerIds " +
-            "  GROUP BY cp2.customer.idCustomer" +
-            ")")
+    @Query(value = "SELECT DISTINCT ON (cp.id_customer) cp.* " +
+            "FROM churn_predictions cp " +
+            "WHERE cp.id_customer IN :customerIds " +
+            "ORDER BY cp.id_customer, cp.id_churn_prediction DESC",
+            nativeQuery = true)
     List<ChurnPredictions> findLatestByCustomerIds(@Param("customerIds") List<Long> customerIds);
 
     /**
      * Returns the latest prediction for ALL customers that have at least one prediction.
-     * Used by Centro de Mando KPIs and Visión Ejecutiva to reflect the full predicted portfolio.
+     * DISTINCT ON usa el índice compuesto — evita subquery MAX + HashAggregate.
      */
-    @Query("SELECT cp FROM ChurnPredictions cp " +
-            "JOIN FETCH cp.customer c " +
-            "WHERE cp.idChurnPrediction IN (" +
-            "  SELECT MAX(cp2.idChurnPrediction) FROM ChurnPredictions cp2 " +
-            "  GROUP BY cp2.customer.idCustomer" +
-            ")")
+    @Query(value = "SELECT DISTINCT ON (cp.id_customer) cp.* " +
+            "FROM churn_predictions cp " +
+            "ORDER BY cp.id_customer, cp.id_churn_prediction DESC",
+            nativeQuery = true)
     List<ChurnPredictions> findLatestForAllCustomers();
 
     /**
      * Returns customer IDs whose latest prediction matches the given risk level.
-     * Used for pre-filtering before pagination in Centro de Mando.
+     * Subquery sobre DISTINCT ON — evita doble GroupBy.
      */
-    @Query("SELECT cp.customer.idCustomer FROM ChurnPredictions cp " +
-            "WHERE cp.idChurnPrediction IN (" +
-            "  SELECT MAX(cp2.idChurnPrediction) FROM ChurnPredictions cp2 " +
-            "  GROUP BY cp2.customer.idCustomer" +
-            ") AND LOWER(cp.riskLevel) = LOWER(:riskLevel)")
+    @Query(value = "SELECT id_customer FROM (" +
+            "  SELECT DISTINCT ON (id_customer) id_customer, risk_level " +
+            "  FROM churn_predictions " +
+            "  ORDER BY id_customer, id_churn_prediction DESC" +
+            ") latest WHERE LOWER(risk_level) = LOWER(:riskLevel)",
+            nativeQuery = true)
     List<Long> findCustomerIdsByLatestRiskLevel(@Param("riskLevel") String riskLevel);
 }

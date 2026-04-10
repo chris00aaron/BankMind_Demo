@@ -2102,6 +2102,8 @@ public class ChurnService {
             try {
                 List<ChurnBatchResultItemDTO> results = callPythonApiBatch(chunk, customerLookup, accountMap);
                 LocalDateTime now = LocalDateTime.now();
+                // Construir lista del chunk — se persiste en un solo saveAll (evita N+1)
+                List<ChurnPredictions> chunkPreds = new ArrayList<>();
                 for (ChurnBatchResultItemDTO r : results) {
                     Customer c = customerLookup.get(r.getId());
                     AccountDetails acc = accountMap.get(r.getId());
@@ -2118,10 +2120,11 @@ public class ChurnService {
                     pred.setCustomerValue(acc.getBalance() != null ? acc.getBalance() : BigDecimal.ZERO);
                     double conf = r.getPredictionConfidence() != null ? r.getPredictionConfidence() : 0.95;
                     pred.setPredictionConfidence(BigDecimal.valueOf(conf));
-
-                    ChurnPredictions saved = churnPredictionsRepository.save(pred);
-                    newPredictions.put(r.getId(), saved);
+                    chunkPreds.add(pred);
+                    newPredictions.put(r.getId(), pred);
                 }
+                // Un solo INSERT por chunk en lugar de uno por predicción
+                churnPredictionsRepository.saveAll(chunkPreds);
             } catch (Exception ex) {
                 System.err.println("[BatchPredict] Error en chunk " + chunkNum + ": " + ex.getMessage());
             }

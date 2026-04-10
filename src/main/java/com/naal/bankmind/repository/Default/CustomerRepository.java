@@ -87,11 +87,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
          */
         @Query(value = "SELECT c.* FROM customer c " +
                         "LEFT JOIN (" +
-                        "  SELECT cp.id_customer, cp.churn_probability " +
-                        "  FROM churn_predictions cp " +
-                        "  WHERE cp.id_churn_prediction IN (" +
-                        "    SELECT MAX(cp2.id_churn_prediction) FROM churn_predictions cp2 GROUP BY cp2.id_customer" +
-                        "  )" +
+                        "  SELECT DISTINCT ON (id_customer) id_customer, churn_probability " +
+                        "  FROM churn_predictions " +
+                        "  ORDER BY id_customer, id_churn_prediction DESC" +
                         ") lp ON lp.id_customer = c.id_customer " +
                         "ORDER BY COALESCE(lp.churn_probability, -1) DESC",
                 countQuery = "SELECT COUNT(*) FROM customer",
@@ -103,11 +101,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
          */
         @Query(value = "SELECT c.* FROM customer c " +
                         "LEFT JOIN (" +
-                        "  SELECT cp.id_customer, cp.churn_probability " +
-                        "  FROM churn_predictions cp " +
-                        "  WHERE cp.id_churn_prediction IN (" +
-                        "    SELECT MAX(cp2.id_churn_prediction) FROM churn_predictions cp2 GROUP BY cp2.id_customer" +
-                        "  )" +
+                        "  SELECT DISTINCT ON (id_customer) id_customer, churn_probability " +
+                        "  FROM churn_predictions " +
+                        "  ORDER BY id_customer, id_churn_prediction DESC" +
                         ") lp ON lp.id_customer = c.id_customer " +
                         "WHERE c.id_customer IN :ids " +
                         "ORDER BY COALESCE(lp.churn_probability, -1) DESC",
@@ -122,11 +118,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
          */
         @Query(value = "SELECT c.* FROM customer c " +
                         "LEFT JOIN (" +
-                        "  SELECT cp.id_customer, cp.churn_probability " +
-                        "  FROM churn_predictions cp " +
-                        "  WHERE cp.id_churn_prediction IN (" +
-                        "    SELECT MAX(cp2.id_churn_prediction) FROM churn_predictions cp2 GROUP BY cp2.id_customer" +
-                        "  )" +
+                        "  SELECT DISTINCT ON (id_customer) id_customer, churn_probability " +
+                        "  FROM churn_predictions " +
+                        "  ORDER BY id_customer, id_churn_prediction DESC" +
                         ") lp ON lp.id_customer = c.id_customer " +
                         "WHERE c.id_customer IN :ids " +
                         "AND (LOWER(c.first_name) LIKE LOWER(CONCAT('%', :search, '%')) " +
@@ -149,11 +143,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
          */
         @Query(value = "SELECT c.* FROM customer c " +
                         "LEFT JOIN (" +
-                        "  SELECT cp.id_customer, cp.churn_probability " +
-                        "  FROM churn_predictions cp " +
-                        "  WHERE cp.id_churn_prediction IN (" +
-                        "    SELECT MAX(cp2.id_churn_prediction) FROM churn_predictions cp2 GROUP BY cp2.id_customer" +
-                        "  )" +
+                        "  SELECT DISTINCT ON (id_customer) id_customer, churn_probability " +
+                        "  FROM churn_predictions " +
+                        "  ORDER BY id_customer, id_churn_prediction DESC" +
                         ") lp ON lp.id_customer = c.id_customer " +
                         "WHERE (LOWER(c.first_name) LIKE LOWER(CONCAT('%', :search, '%')) " +
                         "  OR LOWER(c.surname) LIKE LOWER(CONCAT('%', :search, '%')) " +

@@ -14,7 +14,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/fraud/batch")
-@CrossOrigin(origins = { "http://localhost:5173", "http://localhost:3000" })
 public class BatchController {
 
     private final BatchPredictionService batchPredictionService;

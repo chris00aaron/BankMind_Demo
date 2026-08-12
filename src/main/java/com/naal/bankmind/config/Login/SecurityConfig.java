@@ -55,7 +55,8 @@ public class SecurityConfig {
                                 "/css/**",
                                 "/js/**",
                                 "/static/**",
-                                "/favicon.ico")
+                                "/favicon.ico"
+                        )
                         .permitAll()
                         // Rutas del módulo fraude
                         .requestMatchers("/api/fraud/**").hasAnyRole("ADMIN", "OPERARIO_ANOMALIAS")
